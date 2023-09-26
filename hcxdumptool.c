@@ -408,7 +408,7 @@ static u8 wltxbuffer[WLTXBUFFER] = {0};
 static u8 wltxnoackbuffer[WLTXBUFFER] = {0};
 
 static char rtb[RTD_LEN] = {0};
-/*===========================================================================*/
+
 /*===========================================================================*/
 /* status print */
 static void show_interfacecapabilities2(void)
@@ -461,52 +461,6 @@ static void show_interfacecapabilities2(void)
 			else
 				fprintf(stdout, "\t");
 			fprintf(stdout, "%6d [%3d]", (scanlist + ifl)->frequency, (scanlist + ifl)->channel);
-		}
-		fprintf(stdout, "\n");
-	}
-	return;
-}
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-static void show_interfacecapabilities(void)
-{
-	static size_t i;
-	static size_t ifl;
-
-	static const char *po = "N/A";
-	static const char *mode = "-";
-	static frequencylist_t *iffreql;
-
-	for (i = 0; i < ifpresentlistcounter; i++)
-	{
-		if ((ifpresentlist + i)->index != ifaktindex)
-			continue;
-		fprintf(stdout, "interface information:\n\nphy idx hw-mac       virtual-mac  m ifname           driver (protocol)\n"
-						"---------------------------------------------------------------------------------------------\n");
-		if (((ifpresentlist + i)->type & IF_HAS_NETLINK) == IF_HAS_NETLINK)
-			po = "NETLINK";
-		if (((ifpresentlist + i)->type & IFTYPEMONACT) == IFTYPEMONACT)
-			mode = "*";
-		else if (((ifpresentlist + i)->type & IFTYPEMON) == IFTYPEMON)
-			mode = "+";
-		fprintf(stdout, "%3d %3d %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %s %-*s %s (%s)\n", (ifpresentlist + i)->wiphy, (ifpresentlist + i)->index,
-				(ifpresentlist + i)->hwmac[0], (ifpresentlist + i)->hwmac[1], (ifpresentlist + i)->hwmac[2], (ifpresentlist + i)->hwmac[3], (ifpresentlist + i)->hwmac[4], (ifpresentlist + i)->hwmac[5],
-				(ifpresentlist + i)->vimac[0], (ifpresentlist + i)->vimac[1], (ifpresentlist + i)->vimac[2], (ifpresentlist + i)->vimac[3], (ifpresentlist + i)->vimac[4], (ifpresentlist + i)->vimac[5],
-				mode, IF_NAMESIZE, (ifpresentlist + i)->name, (ifpresentlist + i)->driver, po);
-		iffreql = (ifpresentlist + i)->frequencylist;
-		fprintf(stdout, "\n\navailable frequencies: frequency [channel] tx-power of Regulatory Domain: %s\n", country);
-		for (ifl = 0; ifl < FREQUENCYLIST_MAX; ifl++)
-		{
-			if ((iffreql + ifl)->frequency == 0)
-				break;
-			if (ifl % 4 == 0)
-				fprintf(stdout, "\n");
-			else
-				fprintf(stdout, "\t");
-			if ((iffreql + ifl)->status == 0)
-				fprintf(stdout, "%6d [%3d] %.1f dBm", (iffreql + ifl)->frequency, (iffreql + ifl)->channel, 0.01 * (iffreql + ifl)->pwr);
-			else
-				fprintf(stdout, "%6d [%3d] disabled", (iffreql + ifl)->frequency, (iffreql + ifl)->channel);
 		}
 		fprintf(stdout, "\n");
 	}
@@ -4391,11 +4345,29 @@ bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNC
     }
 
     struct bpf_insn *insn;
-	int i;
+	insn = filter.bf_insns;
+	static u16 c;
+	
 	bpf.len = filter.bf_len;
     if (bpf.len == 0)
 		return false;
-	bpf.filter = filter.bf_insns;
+	
+	
+	bpf.filter = (struct sock_filter*)calloc(bpf.len, sizeof(struct sock_filter));
+	
+	c = 0;
+	bpfptr = bpf.filter;
+	while(c < bpf.len)
+	{
+		bpfptr->code = insn->code;
+		bpfptr->jt = insn->jt;
+		bpfptr->jf = insn->jf;
+		bpfptr->k = insn->k;
+		bpfptr++;
+		insn++;
+		c++;
+	}
+
     return true;
 }
 
