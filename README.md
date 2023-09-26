@@ -1,4 +1,4 @@
-net-name-hcx
+net-nomad-hcx
 ==============
 
 A gutted HCXDUMPTOOL v6.3.1 that builds into a static object. 
