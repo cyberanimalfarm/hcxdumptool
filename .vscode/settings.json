@@ -1,0 +1,6 @@
+{
+    "C_Cpp.dimInactiveRegions": false,
+    "files.associations": {
+        "hcxdumptool.h": "c"
+    }
+}

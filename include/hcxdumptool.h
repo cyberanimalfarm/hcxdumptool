@@ -1,4 +1,9 @@
 /*===========================================================================*/
+
+
+#define VERSION_TAG "6.3.1"
+#define VERSION_YEAR "2023"
+
 #define HCX_BPF				1
 #define HCX_DISABLE_BEACON		2
 #define HCX_DISABLE_DEAUTHENTICATION	3
