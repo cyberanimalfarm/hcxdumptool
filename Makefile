@@ -1,71 +1,21 @@
-PRODUCTION		:= 0
-PRODUCTION_VERSION	:= 6.3.1
-PRODUCTION_YEAR		:= 2023
+all: net-nomad-hcx clean
 
-VERSION_YEAR		:= $(shell echo $(PRODUCTION_YEAR))
-VERSION_TAG		:= $(PRODUCTION_VERSION)
+net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a
+		gcc -Wall -o net-nomad-hcx net-nomad-hcx.c -lhcxdumptool -lpcap -Llib -Iinclude
 
-PREFIX		?= /usr
-BINDIR		= $(DESTDIR)$(PREFIX)/bin
+net-nomad-hcx.o: net-nomad-hcx.c
+		gcc -O -c net-nomad-hcx.c
 
-HOSTOS		:= $(shell uname -s)
+hcxdumptool.o: hcxdumptool.c include/hcxdumptool.h
+		gcc -c -Wall -Werror -fPIC hcxdumptool.c
 
-CC		?= gcc
-CFLAGS		?= -O3 -Wall -Wextra -Wpedantic
-CFLAGS		+= -std=gnu99 -fPIC --shared
-#CFLAGS		+= -ggdb -fsanitize=address
-DEFS		= -DVERSION_TAG=\"$(VERSION_TAG)\" -DVERSION_YEAR=\"$(VERSION_YEAR)\"
+libhcxdumptool.a: hcxdumptool.o
+		ar cr lib/libhcxdumptool.a hcxdumptool.o
 
-INSTALL		?= install
-INSTFLAGS	=
+libs: libhcxdumptool.a
 
-ifeq ($(HOSTOS), Linux)
-INSTFLAGS += -D
-endif
+cleanall:
+		rm -f net-nomad-hcx *.o libs/*.a *.gch
 
-
-TOOLS=hcxdumptool
-
-.PHONY: all build install clean uninstall
-
-all: build
-
-build: $(TOOLS)
-
-# $1: tool name
-define tool-build
-$(1)_src ?= $(1).c
-$(1)_libs ?=
-$(1)_cflags ?=
-
-$(1): $$($(1)_src)
-	$$(CC) $$(CFLAGS) $$($(1)_cflags) $$(CPPFLAGS) -o $$@.so $$($(1)_src) $$(DEFS)
-
-.deps/$(1).d: $(1)
-
-.PHONY: $(1).install
-$(1).install: $(1)
-	$$(INSTALL) $$(INSTFLAGS) -m 0755 $(1) $$(BINDIR)/$(1)
-
-.PHONY: $(1).clean
-$(1).clean:
-	rm -f .deps/$(1).d
-	rm -f $(1)
-
-.PHONY: $(1).uninstall
-$(1).uninstall:
-	rm -rf $$(BINDIR)/$(1)
-
-endef
-
-$(foreach tool,$(TOOLS),$(eval $(call tool-build,$(tool))))
-
-install: $(patsubst %,%.install,$(TOOLS))
-
-clean: $(patsubst %,%.clean,$(TOOLS))
-	rm -rf .deps
-	rm -f *.o *~
-
-uninstall: $(patsubst %,%.uninstall,$(TOOLS))
-
--include .deps/*.d
+clean:
+		rm -f *.o *.gch

@@ -1,3 +1,44 @@
+#define _GNU_SOURCE
+#include <arpa/inet.h>
+#include <errno.h>
+#if defined(_POSIX_VERSION)
+#include <fcntl.h>
+#endif
+#include <getopt.h>
+#include <inttypes.h>
+#include <libgen.h>
+#include <linux/filter.h>
+#include <linux/genetlink.h>
+#include <linux/if_packet.h>
+#include <linux/limits.h>
+#include <linux/nl80211.h>
+#include <linux/rtnetlink.h>
+#include <linux/version.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/epoll.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/timerfd.h>
+#if defined(_POSIX_VERSION)
+#include <sys/stat.h>
+#include <sys/utsname.h>
+#include <termios.h>
+#endif
+#include "types.h"
+#include "ieee80211.h"
+#include "pcapng.h"
+#include "radiotap.h"
+#include <pcap.h>
+
 /*===========================================================================*/
 
 #define VERSION_TAG "6.3.1"
@@ -95,6 +136,8 @@
 #define NLRX_SIZE 0xffff
 
 #define WEAKCANDIDATEDEF "12345678"
+
+
 
 /*===========================================================================*/
 
@@ -361,4 +404,9 @@ typedef struct
 
 static inline bool nl_set_frequency();
 
+
 /*===========================================================================*/
+
+// Our custom entrypoint / code
+
+int entrypoint(char* iname, char* target_mac);

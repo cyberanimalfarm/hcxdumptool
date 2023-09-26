@@ -1,4 +1,7 @@
 hcxdumptool
 hcxdumptool.so
+refs/*
+lib/*
 .vscode/*
-rundll.c
+*.pcapng
+net-nomad-hcx
