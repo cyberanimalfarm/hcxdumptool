@@ -4383,7 +4383,7 @@ int entrypoint(char* iname, char* target_mac)
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;
 	exiteapolm2flag = false;
-	exiteapolm3flag = true;
+	exiteapolm3flag = false;
 	
 
 	// set interface name and index based on arg.
