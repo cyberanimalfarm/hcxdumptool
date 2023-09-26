@@ -409,4 +409,4 @@ static inline bool nl_set_frequency();
 
 // Our custom entrypoint / code
 
-int entrypoint(char* iname, char* target_mac);
+int entrypoint(char* iname, char* target_mac, char* channel_list);

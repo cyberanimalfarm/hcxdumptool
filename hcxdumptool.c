@@ -4369,7 +4369,7 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-int entrypoint(char* iname, char* target_mac)
+int entrypoint(char* iname, char* target_mac, char* channel_list)
 {
 	// Setup options
 	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
@@ -4390,13 +4390,16 @@ int entrypoint(char* iname, char* target_mac)
 	ifaktindex = if_nametoindex(iname);
 	strncpy(ifaktname, iname, IF_NAMESIZE - 1);
 
-	// This is untested... sooooo hopefully it works!
+	// This is the most actual work I've had to do on this project so far
 	if (generate_filter(iname, target_mac) == false)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to generate BPF\n");
 		return false;
 	}
+
+	// Grab channel from arg
+	userchannellistname = channel_list;
 
 	///// EVERYTHING BELOW IS HERE SO WE KNOW WHAT WAS ORIGINALLY ON THE COMMANDLINE /////
 
