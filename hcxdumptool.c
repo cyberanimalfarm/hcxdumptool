@@ -512,57 +512,7 @@ static void show_interfacecapabilities(void)
 	}
 	return;
 }
-/*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-static void show_interfacelist_short(void)
-{
-	static size_t i;
-	static const char *po = "N/A";
-	static const char *mode = "-";
 
-	for (i = 0; i < ifpresentlistcounter; i++)
-	{
-		if (((ifpresentlist + i)->type & IF_HAS_NETLINK) == IF_HAS_NETLINK)
-			po = "NETLINK";
-		if (((ifpresentlist + i)->type & IFTYPEMONACT) == IFTYPEMONACT)
-			mode = "*";
-		else if (((ifpresentlist + i)->type & IFTYPEMON) == IFTYPEMON)
-			mode = "+";
-		fprintf(stdout, "%3d\t%3d\t%02x%02x%02x%02x%02x%02x\t%02x%02x%02x%02x%02x%02x\t%s\t%-*s\t%s\t%s\n", (ifpresentlist + i)->wiphy, (ifpresentlist + i)->index,
-				(ifpresentlist + i)->hwmac[0], (ifpresentlist + i)->hwmac[1], (ifpresentlist + i)->hwmac[2], (ifpresentlist + i)->hwmac[3], (ifpresentlist + i)->hwmac[4], (ifpresentlist + i)->hwmac[5],
-				(ifpresentlist + i)->vimac[0], (ifpresentlist + i)->vimac[1], (ifpresentlist + i)->vimac[2], (ifpresentlist + i)->vimac[3], (ifpresentlist + i)->vimac[4], (ifpresentlist + i)->vimac[5],
-				mode, IF_NAMESIZE, (ifpresentlist + i)->name, (ifpresentlist + i)->driver, po);
-	}
-	return;
-}
-/*---------------------------------------------------------------------------*/
-static void show_interfacelist(void)
-{
-	static size_t i;
-	static const char *po = "N/A";
-	static const char *mode = "-";
-
-	fprintf(stdout, "available wlan devices:\n\nphy idx hw-mac       virtual-mac  m ifname           driver (protocol)\n"
-					"---------------------------------------------------------------------------------------------\n");
-	for (i = 0; i < ifpresentlistcounter; i++)
-	{
-		if (((ifpresentlist + i)->type & IF_HAS_NETLINK) == IF_HAS_NETLINK)
-			po = "NETLINK";
-		if (((ifpresentlist + i)->type & IFTYPEMONACT) == IFTYPEMONACT)
-			mode = "*";
-		else if (((ifpresentlist + i)->type & IFTYPEMON) == IFTYPEMON)
-			mode = "+";
-		fprintf(stdout, "%3d %3d %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %s %-*s %s (%s)\n", (ifpresentlist + i)->wiphy, (ifpresentlist + i)->index,
-				(ifpresentlist + i)->hwmac[0], (ifpresentlist + i)->hwmac[1], (ifpresentlist + i)->hwmac[2], (ifpresentlist + i)->hwmac[3], (ifpresentlist + i)->hwmac[4], (ifpresentlist + i)->hwmac[5],
-				(ifpresentlist + i)->vimac[0], (ifpresentlist + i)->vimac[1], (ifpresentlist + i)->vimac[2], (ifpresentlist + i)->vimac[3], (ifpresentlist + i)->vimac[4], (ifpresentlist + i)->vimac[5],
-				mode, IF_NAMESIZE, (ifpresentlist + i)->name, (ifpresentlist + i)->driver, po);
-	}
-	fprintf(stdout, "\n"
-					"* active monitor mode available\n"
-					"+ monitor mode available\n"
-					"- no monitor mode available\n");
-	return;
-}
 /*---------------------------------------------------------------------------*/
 static inline void show_realtime_rca(void)
 {
@@ -4001,23 +3951,8 @@ static bool set_interface(bool interfacefrequencyflag, char *userfrequencylistna
 	return true;
 }
 /*===========================================================================*/
-static bool set_monitormode(void)
-{
-	if (rt_set_interface(0) == false)
-		return false;
-	if (nl_set_monitormode() == false)
-		return false;
-	if (rt_set_interface(IFF_UP) == false)
-		return false;
-	if (nl_get_interfacestatus() == false)
-		return false;
-	if (rt_get_interfacestatus() == false)
-		return false;
-	show_interfacecapabilities();
-	fprintf(stdout, "\n\nmonitor mode is active...\n");
-	return true;
-}
-/*===========================================================================*/
+
+
 static bool get_interfacelist(void)
 {
 	static size_t i;
@@ -4425,6 +4360,7 @@ static int fgetline(FILE *inputstream, size_t size, char *buffer)
 	len = chop(buffptr, len);
 	return len;
 }
+
 /*===========================================================================*/
 bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
     
@@ -4501,170 +4437,22 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-/*===========================================================================*/
-/*===========================================================================*/
-__attribute__((noreturn)) static inline void version(char *eigenname)
-{
-	fprintf(stdout, "%s %s (C) %s ZeroBeat\n", eigenname, VERSION_TAG, VERSION_YEAR);
-
-#if defined(__GNUC__)
-	fprintf(stdout, "compiled by gcc %d.%d.%d\n", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
-#else
-	fprintf(stdout, "compiler (__GNUC__) is not defined\n");
-#endif
-#if defined(LINUX_VERSION_MAJOR)
-	fprintf(stdout, "compiled with Linux API headers %d.%d.%d\n", LINUX_VERSION_MAJOR, LINUX_VERSION_PATCHLEVEL, LINUX_VERSION_SUBLEVEL);
-#else
-	fprintf(stdout, "Linux API headers (LINUX_VERSION_MAJOR) is not defined\n");
-#endif
-#if defined(__GLIBC__)
-	fprintf(stdout, "compiled with glibc %d.%d\n", __GLIBC__, __GLIBC_MINOR__);
-#else
-	fprintf(stdout, "glibc (__GLIBC_MINOR__) is not defined\n");
-#endif
-	exit(EXIT_SUCCESS);
-}
-/*---------------------------------------------------------------------------*/
-__attribute__((noreturn)) static inline void usage(char *eigenname)
-{
-	fprintf(stdout, "%s %s  (C) %s ZeroBeat\n"
-					"usage: %s <options>\n"
-					"        first stop all services that take access to the interface, e.g.:\n"
-					"        $ sudo systemctl stop NetworkManager.service\n"
-					"        $ sudo systemctl stop wpa_supplicant.service\n"
-					"        then run %s\n"
-					"        press ctrl+c to terminate\n"
-					"        press GPIO button to terminate\n"
-					"        hardware modification is necessary, read more:\n"
-					"        https://github.com/ZerBea/hcxdumptool/tree/master/docs\n"
-					"        stop all services (e.g.: wpa_supplicant.service, NetworkManager.service) that take access to the interface\n"
-					"        do not set monitor mode by third party tools (iwconfig, iw, airmon-ng)\n"
-					"        do not use logical (NETLINK) interfaces (monx, wlanxmon, prismx, ...) created by airmon-ng and iw\n"
-					"        do not use virtual machines or emulators\n"
-					"        do not run other tools that take access to the interface in parallel (except: tshark, wireshark, tcpdump)\n"
-					"        do not use tools to change MAC (like macchanger)\n"
-					"        do not merge (pcapng) dump files, because this destroys assigned hash values!\n"
-					"\n"
-					"short options:\n"
-					"-i <INTERFACE> : name of INTERFACE to be used\n"
-					"                  default: first suitable INTERFACE\n"
-					"                  warning: %s changes the virtual MAC address of the INTERFACE\n"
-					"-w <outfile>   : write packets to a pcapng-format file named <outfile>\n"
-					"                  default outfile name: yyyyddmmhhmmss-interfacename.pcapng\n"
-					"                  get more information: https://pcapng.com/\n"
-					"-c <digit>     : set channel (1a,2a,36b...)\n"
-					"                  default: 1a,6a,11a\n"
-					"                  important notice: channel numbers are not unique\n"
-					"                  it is mandatory to add band information to the channel number (e.g. 12a)\n"
-					"                   band a: NL80211_BAND_2GHZ\n"
-					"                   band b: NL80211_BAND_5GHZ\n"
-					"                   band c: NL80211_BAND_6GHZ\n"
-					"                   band d: NL80211_BAND_60GHZ\n"
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
-					"                   band e: NL80211_BAND_S1GHZ (902 MHz)\n"
-#endif
-					"                  to disable frequency management, set this option to a single frequency/channel\n"
-					"-f <digit>     : set frequency (2412,2417,5180,...)\n"
-					"-F             : use available frequencies from INTERFACE\n"
-					"-t <second>    : minimum stay time (will increase on new stations and/or authentications)\n"
-					"                  default %llu seconds\n"
-					"-m <INTERFACE> : set monitor mode and terminate\n"
-					"-p             : do not set monitor mode: active (do not ACK incoming frames addressed to the device MAC)\n"
-					"                 default monitor mode: active (ACK all incoming frames addressed to the device MAC)\n"
-					"-L             : show INTERFACE list\n"
-					"-l             : show INTERFACE list (tabulator separated and greppable)\n"
-					"-I <INTERFACE> : show detailed information about INTERFACE\n"
-					"-h             : show this help\n"
-					"-v             : show version\n"
-					"\n",
-			eigenname, VERSION_TAG, VERSION_YEAR, eigenname, eigenname, eigenname, TIMEHOLD / 1000000000ULL);
-	fprintf(stdout, "long options:\n"
-					"--disable_beacon               : do not transmit BEACON frames\n"
-					"--disable_deauthentication     : do not transmit DEAUTHENTICATION/DISASSOCIATION frames\n"
-					"--disable_proberequest         : do not transmit PROBEREQUEST frames\n"
-					"--disable_association          : do not AUTHENTICATE/ASSOCIATE\n"
-					"--disable_reassociation        : do not REASSOCIATE a CLIENT\n"
-					"--beacontx=<digit>             : transmit BEACON of first n entries of ESSID list\n"
-					"                                  default: %d\n"
-					"--proberesponsetx=<digit>      : transmit PROBERESPONSEs of first n entries of ESSID list\n"
-					"                                 default: %d\n"
-					"--essidlist=<file>             : initialize ESSID list with these ESSIDs\n"
-					"--errormax=<digit>             : set maximum allowed ERRORs\n"
-					"                                  default: %d ERRORs\n"
-					"--watchdogmax=<seconds>        : set maximum TIMEOUT when no packets received\n"
-					"                                  default: %d seconds\n"
-					"--attemptclientmax=<digit>     : set maximum of attempts to request an EAPOL M2\n"
-					"                                  default: %d attempts\n"
-					"                                  to disable CLIENT attacks set 0\n"
-					"--attemptapmax=<digit>         : set maximum of received BEACONs to request a PMKID or to get a 4-way handshake\n"
-					"                                  default: stop after %d received BEACONs\n"
-					"                                  attemptapmax=0 include this options:\n"
-					"                                   disable_deauthentication: do not transmit DEAUTHENTICATION/DISASSOCIATION frames\n"
-					"                                   disable_proberequest    : do not transmit PROBEREQUEST frames\n"
-					"                                   disable_association     : do not AUTHENTICATE/ASSOCIATE\n"
-					"                                   disable_reassociation   : do not REASSOCIATE a CLIENT\n",
-			eigenname, eigenname,
-			BEACONTX_MAX, PROBERESPONSETX_MAX, ERROR_MAX, WATCHDOG_MAX, ATTEMPTCLIENT_MAX, ATTEMPTAP_MAX / 8);
-
-	fprintf(stdout, "--tot=<digit>                  : enable timeout timer in minutes\n"
-					"--exitoneapol=<type>           : exit on first EAPOL occurrence:\n"
-					"                                  bitmask:\n"
-					"                                   1 = PMKID\n"
-					"                                   2 = EAPOL M2\n"
-					"                                   4 = EAPOL M3\n"
-					"                                  target BPF filter is recommended\n"
-					"--rds=<digit>                  : sort real time display\n"
-					"                                  default: sort by time (last seen on top)\n"
-					"                                  1 = sort by status (last PMKID/EAPOL on top)\n"
-					"--help                         : show this help\n"
-					"--version                      : show version\n"
-					"\n");
-
-	fprintf(stdout, "Legend\n"
-					"real time display:\n"
-					" R = + AP display     : AP is in TX range or under attack\n"
-					" S = + AP display     : AUTHENTICATION KEY MANAGEMENT PSK\n"
-					" P = + AP display     : got PMKID hashcat / JtR can work on\n"
-					" 1 = + AP display     : got EAPOL M1 (CHALLENGE)\n"
-					" 3 = + AP display     : got EAPOL M1M2M3 (AUTHORIZATION) hashcat / JtR can work on\n"
-					" E = + CLIENT display : got EAP-START MESSAGE\n"
-					" 2 = + CLIENT display : got EAPOL M1M2 (ROGUE CHALLENGE) hashcat / JtR can work on\n"
-					"\n");
-	fprintf(stdout, "Notice:\n"
-					"This is a penetration testing tool!\n"
-					"It is made to detect vulnerabilities in your NETWORK mercilessly!\n"
-					"To store entire traffic, run <tshark -i <interface> -w allframes.pcapng> in parallel\n"
-					"\n");
-	exit(EXIT_SUCCESS);
-}
-/*---------------------------------------------------------------------------*/
-__attribute__((noreturn)) static inline void usageerror(char *eigenname)
-{
-	fprintf(stdout, "%s %s (C) %s by ZeroBeat\n"
-					"usage: %s -h for help\n",
-			eigenname, VERSION_TAG, VERSION_YEAR, eigenname);
-	exit(EXIT_FAILURE);
-}
-/*===========================================================================*/
-
 int entrypoint(char* iname, char* target_mac)
 {
 	// Setup options
 	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
-	static u8 exitsigtermflag = 0; // Did we exit because of SIGTERM?
-	static u8 exittotflag = 0; // Did we exit because of Timeout Timer?
-	static u8 exitwatchdogflag = 0; // Did we exit because of "watchdog" (wtf is this)
-	static u8 exiterrorflag = 0; // Did we exit because of error count?
 	static bool interfacefrequencyflag = false; // Use interface freqs for scan... This will override a specific channel... reccomend we keep this off.
 	static struct timespec tspecifo, tspeciforem;
-	static char *bpfname = NULL; // TODO: actually generate the BPF using libpcap
 	static char *essidlistname = NULL; // ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
 	static char *userchannellistname = NULL; // List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
 	static char *userfrequencylistname = NULL; // List of user freqs to scan (Likely not used)
-	static char *pcapngoutname = NULL; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
-	static char *filterstring[500]; // the compiled bpfstring will go here
+	static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
 
-	// Start of new static data - hopefully.
+	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
+	exiteapolpmkidflag = false;
+	exiteapolm2flag = false;
+	exiteapolm3flag = true;
+	
 
 	// set interface name and index based on arg.
 	ifaktindex = if_nametoindex(iname);
@@ -4678,16 +4466,7 @@ int entrypoint(char* iname, char* target_mac)
 		return false;
 	}
 
-	pcapngoutname = "test.pcapng";
-
-	userfrequencylistname = "";
-	userchannellistname = "";
-	essidlistname = "";
-
-	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
-	exiteapolpmkidflag = false;
-	exiteapolm2flag = false;
-	exiteapolm3flag = true;
+	///// EVERYTHING BELOW IS HERE SO WE KNOW WHAT WAS ORIGINALLY ON THE COMMANDLINE /////
 
 	// Only for "DISABLE BEACON"
 	//timerwaitnd = -1;
@@ -4786,6 +4565,7 @@ int entrypoint(char* iname, char* target_mac)
 		fprintf(stderr, "must be run as root\n");
 		goto byebye;
 	}
+
 	// ARM INTERFACE / SET CHANNEL AND SO ON
 	// interfacefrequencyflag 1: Use Interface freqs in scanlist 0: Do not use interface frequency in scanlist
 	// userfrequencylistname STR: Comma delim. list of freqs (2412,2417,5180,...)

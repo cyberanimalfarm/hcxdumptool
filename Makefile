@@ -15,7 +15,6 @@ CFLAGS		?= -O3 -Wall -Wextra -Wpedantic -c
 CFLAGS		+= -std=gnu99
 #CFLAGS		+= -ggdb -fsanitize=address
 DEFS		= -DVERSION_TAG=\"$(VERSION_TAG)\" -DVERSION_YEAR=\"$(VERSION_YEAR)\"
-DEFS		+= -DSTATUSOUT -DNMEAOUT
 
 INSTALL		?= install
 INSTFLAGS	=
@@ -40,7 +39,7 @@ $(1)_libs ?=
 $(1)_cflags ?=
 
 $(1): $$($(1)_src)
-	$$(CC) $$(CFLAGS) $$($(1)_cflags) $$(CPPFLAGS) -o $$@ $$($(1)_src) $$(DEFS)
+	$$(CC) $$(CFLAGS) $$($(1)_cflags) $$(CPPFLAGS) -o $$@.so $$($(1)_src) $$(DEFS)
 
 .deps/$(1).d: $(1)
 
