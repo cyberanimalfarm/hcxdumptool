@@ -338,6 +338,5 @@ typedef struct
  char attrbuf[512];
 }req_t;
 /*===========================================================================*/
-static bool read_bpf(char *bpfname);
 static inline bool nl_set_frequency();
 /*===========================================================================*/

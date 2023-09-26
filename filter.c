@@ -3,6 +3,9 @@
 
 char filter_str[500];
 
+
+// THIS CODE IS NOW IMPLEMENTED IN THE STRIPPED BINARY
+
 void generate_filter(char *dev, char *addr) {
     
     pcap_t *handle;

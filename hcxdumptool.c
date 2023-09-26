@@ -38,6 +38,7 @@
 #include "include/ieee80211.h"
 #include "include/pcapng.h"
 #include "include/radiotap.h"
+#include <pcap.h>
 
 static bool deauthenticationflag = true;
 static bool proberequestflag = true;
@@ -62,14 +63,12 @@ static int fd_socket_tx = 0;
 static int fd_timer1 = 0;
 static int fd_pcapng = 0;
 
-#ifdef STATUSOUT
 static u8 rdsort = 0;
 static long int totalcapturedcount = 0;
 static long int wecbcount = 0;
 static long int wepbcount = 0;
 static long int widbcount = 0;
 static long int wshbcount = 0;
-#endif
 
 
 static struct sock_fprog bpf = {0};
@@ -612,7 +611,6 @@ static inline void show_realtime_rca(void)
 	return;
 }
 /*---------------------------------------------------------------------------*/
-#ifdef STATUSOUT
 static inline void show_realtime(void)
 {
 	static size_t i;
@@ -727,7 +725,6 @@ static inline void show_realtime(void)
 	}
 	return;
 }
-#endif
 /*===========================================================================*/
 /* frequency handling */
 /*---------------------------------------------------------------------------*/
@@ -894,9 +891,7 @@ static inline void writeepbm1(void)
 	totallength->total_length = epblen;
 	if (write(fd_pcapng, &epbown, epblen) != epblen)
 		errorcount++;
-#ifdef STATUSOUT
 	wepbcount++;
-#endif
 	return;
 }
 /*===========================================================================*/
@@ -925,9 +920,7 @@ static inline void writeepb(void)
 	totallength->total_length = epblen;
 	if (write(fd_pcapng, &epb, epblen) != epblen)
 		errorcount++;
-#ifdef STATUSOUT
 	wepbcount++;
-#endif
 	return;
 }
 /*---------------------------------------------------------------------------*/
@@ -964,9 +957,7 @@ static bool writeshb(void)
 	totallength->total_length = shblen;
 	if (write(fd_pcapng, &shb, shblen) != shblen)
 		return false;
-#ifdef STATUSOUT
 	wshbcount++;
-#endif
 	return true;
 }
 /*---------------------------------------------------------------------------*/
@@ -996,9 +987,7 @@ static bool writeidb(void)
 	totallength->total_length = idblen;
 	if (write(fd_pcapng, &idb, idblen) != idblen)
 		return false;
-#ifdef STATUSOUT
 	widbcount++;
-#endif
 	return true;
 }
 /*---------------------------------------------------------------------------*/
@@ -1034,9 +1023,7 @@ static bool writecb(void)
 	totallength->total_length = cblen;
 	if (write(fd_pcapng, &cb, cblen) != cblen)
 		return false;
-#ifdef STATUSOUT
 	wecbcount++;
-#endif
 	return true;
 }
 
@@ -2711,9 +2698,7 @@ static inline __attribute__((always_inline)) void process_packet_rca(void)
 			errorcount++;
 		return;
 	}
-#ifdef STATUSOUT
 	totalcapturedcount++;
-#endif
 	rth = (rth_t *)packetptr;
 #ifndef __LITTLE_ENDIAN__
 	if ((rth->it_present & IEEE80211_RADIOTAP_DBM_ANTSIGNAL) == 0)
@@ -2770,9 +2755,7 @@ static inline __attribute__((always_inline)) void process_packet(void)
 			errorcount++;
 		return;
 	}
-#ifdef STATUSOUT
 	totalcapturedcount++;
-#endif
 	rth = (rth_t *)packetptr;
 #ifndef __LITTLE_ENDIAN__
 	if ((rth->it_present & IEEE80211_RADIOTAP_DBM_ANTSIGNAL) == 0)
@@ -4099,7 +4082,7 @@ static bool open_socket_tx(void)
 	return true;
 }
 /*---------------------------------------------------------------------------*/
-static bool open_socket_rx(char *bpfname)
+static bool open_socket_rx()
 {
 	size_t c = 10;
 	static struct sockaddr_ll saddr;
@@ -4110,17 +4093,7 @@ static bool open_socket_rx(char *bpfname)
 	static int socket_rx_flags;
 	static int prioval;
 	static socklen_t priolen;
-
-	bpf.len = 0;
-	if (bpfname != NULL)
-	{
-		if (read_bpf(bpfname) == false)
-		{
-			errorcount++;
-			fprintf(stderr, "failed to read BPF\n");
-			return false;
-		}
-	}
+	
 	if ((fd_socket_rx = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC, htons(ETH_P_ALL))) < 0)
 		return false;
 	memset(&mrq, 0, sizeof(mrq));
@@ -4453,40 +4426,43 @@ static int fgetline(FILE *inputstream, size_t size, char *buffer)
 	return len;
 }
 /*===========================================================================*/
-static bool read_bpf(char *bpfname)
-{
-	static int len;
-	static u16 c;
+bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
+    
+    pcap_t *handle;
+    char error_buffer[PCAP_ERRBUF_SIZE];
+    struct bpf_program filter;
 	static struct sock_filter *bpfptr;
-	static FILE *fh_filter;
-	static char linein[128];
+    
+    char filter_exp[125];
+    snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
+    printf("Filter: %s\n", filter_exp);
+    
+    bpf_u_int32 subnet_mask, ip;
 
-	if ((fh_filter = fopen(bpfname, "r")) == NULL)
+    if (pcap_lookupnet(dev, &ip, &subnet_mask, error_buffer) == -1) {
+        printf("Could not get information for device: %s\n", dev);
+        ip = 0;
+        subnet_mask = 0;
+    }
+    handle = pcap_open_live(dev, BUFSIZ, 1, 1000, error_buffer);
+    if (handle == NULL) {
+        printf("Could not open %s - %s\n", dev, error_buffer);
+        return 2;
+    }
+    if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1) {
+        printf("Bad filter - %s\n", pcap_geterr(handle));
+        return 2;
+    }
+
+    struct bpf_insn *insn;
+	int i;
+	bpf.len = filter.bf_len;
+    if (bpf.len == 0)
 		return false;
-	if ((len = fgetline(fh_filter, 128, linein)) < 0)
-		return false;
-	sscanf(linein, "%" SCNu16, &bpf.len);
-	if (bpf.len == 0)
-		return false;
-	bpf.filter = (struct sock_filter *)calloc(bpf.len, sizeof(struct sock_filter));
-	c = 0;
-	bpfptr = bpf.filter;
-	while (c < bpf.len)
-	{
-		if ((len = fgetline(fh_filter, 128, linein)) == -1)
-		{
-			bpf.len = 0;
-			break;
-		}
-		sscanf(linein, "%" SCNu16 "%" SCNu8 "%" SCNu8 "%" SCNu32, &bpfptr->code, &bpfptr->jt, &bpfptr->jf, &bpfptr->k);
-		bpfptr++;
-		c++;
-	}
-	if (bpf.len != c)
-		return false;
-	fclose(fh_filter);
-	return true;
+	bpf.filter = filter.bf_insns;
+    return true;
 }
+
 /*---------------------------------------------------------------------------*/
 static void read_essidlist(char *listname)
 {
@@ -4603,19 +4579,6 @@ __attribute__((noreturn)) static inline void usage(char *eigenname)
 					"\n",
 			eigenname, VERSION_TAG, VERSION_YEAR, eigenname, eigenname, eigenname, TIMEHOLD / 1000000000ULL);
 	fprintf(stdout, "long options:\n"
-					"--bpf=<file>                   : input kernel space Berkeley Packet Filter (BPF) code\n"
-					"                                  steps to create a BPF (it only has to be done once):\n"
-					"                                  $ %s -m <interface>\n"
-					"                                  create BPF to protect MACs\n"
-					"                                  $ tcpdump -i <INTERFACE> not wlan addr2 11:22:33:44:55:66 -ddd > protect.bpf\n"
-					"                                  recommended to protect own devices\n"
-					"                                  create BPF to attack a MAC\n"
-					"                                  $ tcpdump -i <INTERFACE> wlan addr1 11:22:33:44:55:66 or wlan addr2 11:22:33:44:55:66 or wlan addr3 11:22:33:44:55:66 -ddd > attack.bpf\n"
-					"                                  it is strongly recommended to allow all PROBEREQUEST frames (wlan_type mgt && wlan_subtype probe-req)\n"
-					"                                  $ tcpdump -i <interface> wlan addr1 11:22:33:44:55:66 or wlan addr2 11:22:33:44:55:66 or wlan addr3 11:22:33:44:55:66 or wlan addr3 ff:ff:ff:ff:ff:ff -ddd > attack.bpf\n"
-					"                                  see man pcap-filter for a list of all filter options\n"
-					"                                  add BPF code: \n"
-					"                                  $ %s -i <INTERFACE> --bpf=attack.bpf ...\n"
 					"--disable_beacon               : do not transmit BEACON frames\n"
 					"--disable_deauthentication     : do not transmit DEAUTHENTICATION/DISASSOCIATION frames\n"
 					"--disable_proberequest         : do not transmit PROBEREQUEST frames\n"
@@ -4683,261 +4646,112 @@ __attribute__((noreturn)) static inline void usageerror(char *eigenname)
 	exit(EXIT_FAILURE);
 }
 /*===========================================================================*/
-int main(int argc, char *argv[])
+
+int entrypoint(char* iname, char* target_mac)
 {
 	// Setup options
-	static int auswahl = -1;
-	static int index = 0;
-	static u8 exiteapolflag = 0;
-	static u8 exitsigtermflag = 0;
-	static u8 exitgpiobuttonflag = 0;
-	static u8 exittotflag = 0;
-	static u8 exitwatchdogflag = 0;
-	static u8 exiterrorflag = 0;
+	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
+	static u8 exitsigtermflag = 0; // Did we exit because of SIGTERM?
+	static u8 exittotflag = 0; // Did we exit because of Timeout Timer?
+	static u8 exitwatchdogflag = 0; // Did we exit because of "watchdog" (wtf is this)
+	static u8 exiterrorflag = 0; // Did we exit because of error count?
+	static bool interfacefrequencyflag = false; // Use interface freqs for scan... This will override a specific channel... reccomend we keep this off.
 	static struct timespec tspecifo, tspeciforem;
-	static bool monitormodeflag = false;
-	static bool interfaceinfoflag = false;
-	static bool interfacefrequencyflag = false;
-	static bool interfacelistflag = false;
-	static bool interfacelistshortflag = false;
-	static char *bpfname = NULL;
-	static char *essidlistname = NULL;
-	static char *userchannellistname = NULL;
-	static char *userfrequencylistname = NULL;
-	static char *pcapngoutname = NULL;
-	static const char *short_options = "i:w:c:f:m:I:t:FLlphv";
-	static const struct option long_options[] =
-		{
-			{"bpf", required_argument, NULL, HCX_BPF},
-			{"disable_beacon", no_argument, NULL, HCX_DISABLE_BEACON},
-			{"disable_deauthentication", no_argument, NULL, HCX_DISABLE_DEAUTHENTICATION},
-			{"disable_proberequest", no_argument, NULL, HCX_DISABLE_PROBEREQUEST},
-			{"disable_association", no_argument, NULL, HCX_DISABLE_ASSOCIATION},
-			{"disable_reassociation", no_argument, NULL, HCX_DISABLE_REASSOCIATION},
-			{"beacontx", required_argument, NULL, HCX_BEACONTX_MAX},
-			{"proberesponsetx", required_argument, NULL, HCX_PROBERESPONSETX_MAX},
-			{"attemptclientmax", required_argument, NULL, HCX_ATTEMPT_CLIENT_MAX},
-			{"attemptapmax", required_argument, NULL, HCX_ATTEMPT_AP_MAX},
-			{"tot", required_argument, NULL, HCX_TOT},
-			{"essidlist", required_argument, NULL, HCX_ESSIDLIST},
-			{"errormax", required_argument, NULL, HCX_ERROR_MAX},
-			{"watchdogmax", required_argument, NULL, HCX_WATCHDOG_MAX},
-			{"onsigterm", required_argument, NULL, HCX_ON_SIGTERM},
-			{"ontot", required_argument, NULL, HCX_ON_TOT},
-			{"onwatchdog", required_argument, NULL, HCX_ON_WATCHDOG},
-			{"exitoneapol", required_argument, NULL, HCX_EXIT_ON_EAPOL},
-			{"onerror", required_argument, NULL, HCX_ON_ERROR},
-			{"gpio_button", required_argument, NULL, HCX_GPIO_BUTTON},
-			{"gpio_statusled", required_argument, NULL, HCX_GPIO_STATUSLED},
-			{"rds", required_argument, NULL, HCX_RD_SORT},
-			{"version", no_argument, NULL, HCX_VERSION},
-			{"help", no_argument, NULL, HCX_HELP},
-			{NULL, 0, NULL, 0}};
-	optind = 1;
-	optopt = 0;
-	while ((auswahl = getopt_long(argc, argv, short_options, long_options, &index)) != -1)
+	static char *bpfname = NULL; // TODO: actually generate the BPF using libpcap
+	static char *essidlistname = NULL; // ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
+	static char *userchannellistname = NULL; // List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
+	static char *userfrequencylistname = NULL; // List of user freqs to scan (Likely not used)
+	static char *pcapngoutname = NULL; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
+	static char *filterstring[500]; // the compiled bpfstring will go here
+
+	// Start of new static data - hopefully.
+
+	// set interface name and index based on arg.
+	ifaktindex = if_nametoindex(iname);
+	strncpy(ifaktname, iname, IF_NAMESIZE - 1);
+
+	// This is untested... sooooo hopefully it works!
+	if (generate_filter(iname, target_mac) == false)
 	{
-		switch (auswahl)
-		{
-			case HCX_IFNAME:
-				if ((ifaktindex = if_nametoindex(optarg)) == 0)
-				{
-					perror("failed to get interface index");
-					exit(EXIT_FAILURE);
-				}
-				strncpy(ifaktname, optarg, IF_NAMESIZE - 1);
-				break;
-
-			case HCX_BPF:
-				bpfname = optarg;
-				break;
-
-			case HCX_PCAPNGNAME:
-				pcapngoutname = optarg;
-				break;
-
-			case HCX_SET_SCANLIST_FROM_INTERFACE:
-				interfacefrequencyflag = true;
-				break;
-
-			case HCX_SET_SCANLIST_FROM_USER_FREQ:
-				userfrequencylistname = optarg;
-				break;
-
-			case HCX_SET_SCANLIST_FROM_USER_CH:
-				userchannellistname = optarg;
-				break;
-
-			case HCX_ESSIDLIST:
-				essidlistname = optarg;
-				break;
-
-			case HCX_DISABLE_BEACON:
-				timerwaitnd = -1;
-				break;
-
-			case HCX_DISABLE_DEAUTHENTICATION:
-				deauthenticationflag = false;
-				break;
-
-			case HCX_DISABLE_PROBEREQUEST:
-				proberequestflag = false;
-				break;
-
-			case HCX_DISABLE_ASSOCIATION:
-				associationflag = false;
-				break;
-
-			case HCX_DISABLE_REASSOCIATION:
-				reassociationflag = false;
-				break;
-
-			case HCX_BEACONTX_MAX:
-				beacontxmax = strtoul(optarg, NULL, 10);
-				if ((beacontxmax == 0) || (beacontxmax > (APRGLIST_MAX - 1)))
-				{
-					fprintf(stderr, "must be greater than > 0 and < than %d \n", APRGLIST_MAX - 1);
-					exit(EXIT_FAILURE);
-				}
-				break;
-
-			case HCX_PROBERESPONSETX_MAX:
-				proberesponsetxmax = strtoul(optarg, NULL, 10);
-				if ((proberesponsetxmax == 0) || (proberesponsetxmax > (APRGLIST_MAX - 1)))
-				{
-					fprintf(stderr, "must be greater than > 0 and < than %d \n", APRGLIST_MAX - 1);
-					exit(EXIT_FAILURE);
-				}
-				break;
-
-			case HCX_ATTEMPT_CLIENT_MAX:
-				attemptclientmax = strtoul(optarg, NULL, 10);
-				break;
-
-			case HCX_ATTEMPT_AP_MAX:
-				if ((attemptapmax = strtoul(optarg, NULL, 10)) > 0)
-					attemptapmax *= 8;
-				else
-				{
-					deauthenticationflag = false;
-					proberequestflag = false;
-					associationflag = false;
-					reassociationflag = false;
-				}
-				break;
-
-			case HCX_HOLD_TIME:
-				if ((timehold = strtoull(optarg, NULL, 10)) < 2)
-				{
-					fprintf(stderr, "hold time must be > 2 seconds");
-					exit(EXIT_FAILURE);
-				}
-				timehold *= 1000000000ULL;
-				break;
-
-			case HCX_TOT:
-				if ((tottime = strtoul(optarg, NULL, 10)) < 1)
-				{
-					fprintf(stderr, "time out timer must be > 0 minutes\n");
-					exit(EXIT_FAILURE);
-				}
-				tottime *= 60;
-				break;
-
-			case HCX_WATCHDOG_MAX:
-				if ((watchdogcountmax = strtoul(optarg, NULL, 10)) < 1)
-				{
-					fprintf(stderr, "time out timer must be > 0\n");
-					exit(EXIT_FAILURE);
-				}
-				break;
-
-			case HCX_ERROR_MAX:
-				if ((errorcountmax = strtoul(optarg, NULL, 10)) < 1)
-				{
-					fprintf(stderr, "error counter must be > 0\n");
-					exit(EXIT_FAILURE);
-				}
-				break;
-
-			case HCX_EXIT_ON_EAPOL:
-				exiteapolflag = (atoi(optarg) & 0x0f) << 4;
-				exiteapolpmkidflag |= exiteapolflag & EXIT_ON_EAPOL_PMKID;
-				exiteapolm2flag |= exiteapolflag & EXIT_ON_EAPOL_M2;
-				exiteapolm3flag |= exiteapolflag & EXIT_ON_EAPOL_M3;
-				break;
-
-			case HCX_INTERFACE_INFO:
-				if ((ifaktindex = if_nametoindex(optarg)) == 0)
-				{
-					perror("failed to get interface index");
-					exit(EXIT_FAILURE);
-				}
-				strncpy(ifaktname, optarg, IF_NAMESIZE - 1);
-				interfaceinfoflag = true;
-				break;
-
-			case HCX_SET_MONITORMODE:
-				if ((ifaktindex = if_nametoindex(optarg)) == 0)
-				{
-					perror("failed to get interface index");
-					exit(EXIT_FAILURE);
-				}
-				strncpy(ifaktname, optarg, IF_NAMESIZE - 1);
-				monitormodeflag = true;
-				break;
-
-			case HCX_SHOW_INTERFACE_LIST:
-				if (interfacelistshortflag == true)
-				{
-					fprintf(stderr, "combination of options -L and -l is not allowed\n");
-					exit(EXIT_FAILURE);
-				}
-				interfacelistflag = true;
-				break;
-
-			case HCX_SHOW_INTERFACE_LIST_SHORT:
-				if (interfacelistflag == true)
-				{
-					fprintf(stderr, "combination of options -L and -l is not allowed\n");
-					exit(EXIT_FAILURE);
-				}
-				interfacelistshortflag = true;
-				break;
-
-			case HCX_RD_SORT:
-				rdsort = strtol(optarg, NULL, 10);
-				break;
-
-			case HCX_SET_MONITORMODE_PASSIVE:
-				activemonitorflag = false;
-				break;
-
-			case HCX_HELP:
-				usage(basename(argv[0]));
-				break;
-
-			case HCX_VERSION:
-				version(basename(argv[0]));
-				break;
-
-			case '?':
-				usageerror(basename(argv[0]));
-				break;
-
-			default:
-				usageerror(basename(argv[0]));
-		}
+		errorcount++;
+		fprintf(stderr, "failed to generate BPF\n");
+		return false;
 	}
 
+	pcapngoutname = "test.pcapng";
+
+	userfrequencylistname = "";
+	userchannellistname = "";
+	essidlistname = "";
+
+	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
+	exiteapolpmkidflag = false;
+	exiteapolm2flag = false;
+	exiteapolm3flag = true;
+
+	// Only for "DISABLE BEACON"
+	//timerwaitnd = -1;
+
+	// Only for disabling deauth (WHY WOULD WE WANT THIS?)
+	//deauthenticationflag = false;
+
+	// For disabling probereqs
+	//proberequestflag = false;
+
+	// For disabling association and reassociation
+	//associationflag = false;
+	//reassociationflag = false;
+
+	//For max transmit of beacons... must be between 1-500.
+	//Keep this default for now - I can see tuning in our future.
+	//beacontxmax = 500
+
+	//For max proberesponses must be between 1-500.
+	//Keep this default for now - I can see tuning in our future.
+	//proberesponsetxmax = 500
+
+	//attemptclientmax = 0
+	// default value
+	//attemptapmax = 32 
+	//if (attemptapmax > 0) // if not 0
+	//	attemptapmax *= 8;
+	//else // otherwise disable all the death/probereq/assoc/reassoc (Don't interact with AP's)
+	//{
+	//	deauthenticationflag = false;
+	//	proberequestflag = false;
+	//	associationflag = false;
+	//	reassociationflag = false;
+	//}
+	
+	// Handles hold time on scan.
+	// Default is 1000000000ULL
+	//timehold = 2;
+	//timehold *= 1000000000ULL; 
+
+	//Timeout Timer
+	//tottime = 10*60;
+
+	// Watchdog Count (Default 600)
+	// Also it looks like this makes sure we recieve packets, if it goes this many seconds and no new packets arrive it throws the watchdog.
+	//watchdogcountmax = 600;
+
+	// Error Max (Default 100)
+	// errorcountmax = 100;
+
+	// Display Sorting... (Default 0)
+	// 0 : By time (last seen on top)
+	// 1 : By Status (last EAPOL/PMKID on top)
+	// rdsort = 0;
+
+	// Monitor Mode Active Flag Status (Default True)
+	// True - Allow hardware to respond to ACK destined for our NIC.
+	// False - Hardware will ignore ACK destined for our NIC, allow software to handle it (which we will not).
+	//activemonitorflag = false;
+
+	// Let's get this shit going
 	setbuf(stdout, NULL);
 	hcxpid = getpid();
-
-	if (interfacelistshortflag == false)
-	{
-		fprintf(stdout, "\nRequesting physical interface capabilities. This may take some time.\n"
-						"Please be patient...\n\n");
-	}
+	
 	if (set_signal_handler() == false)
 	{
 		errorcount++;
@@ -4952,7 +4766,6 @@ int main(int argc, char *argv[])
 	}
 	init_values();
 
-	/*---------------------------------------------------------------------------*/
 	if (open_control_sockets() == false)
 	{
 		errorcount++;
@@ -4965,37 +4778,18 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "failed to get interface list\n");
 		goto byebye;
 	}
-	if (interfacelistflag == true)
-	{
-		show_interfacelist();
-		goto byebye;
-	}
-	if (interfacelistshortflag == true)
-	{
-		show_interfacelist_short();
-		goto byebye;
-	}
-	if (interfaceinfoflag == true)
-	{
-		show_interfacecapabilities();
-		goto byebye;
-	}
+	
 	/*---------------------------------------------------------------------------*/
 	if (getuid() != 0)
 	{
 		errorcount++;
-		fprintf(stderr, "%s must be run as root\n", basename(argv[0]));
+		fprintf(stderr, "must be run as root\n");
 		goto byebye;
 	}
-	if (monitormodeflag == true)
-	{
-		if (set_monitormode() == false)
-		{
-			errorcount++;
-			fprintf(stderr, "failed to set monitor mode\n");
-		}
-		goto byebye;
-	}
+	// ARM INTERFACE / SET CHANNEL AND SO ON
+	// interfacefrequencyflag 1: Use Interface freqs in scanlist 0: Do not use interface frequency in scanlist
+	// userfrequencylistname STR: Comma delim. list of freqs (2412,2417,5180,...)
+	// userchannellistname STR: (1a,2a,36b...) default: 1a,6a,11a | important notice: channel numbers are not unique -- it is mandatory to add band information to the channel number (e.g. 12a)
 	if (set_interface(interfacefrequencyflag, userfrequencylistname, userchannellistname) == false)
 	{
 		errorcount++;
@@ -5010,7 +4804,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "failed to open dump file\n");
 		goto byebye;
 	}
-	if (open_socket_rx(bpfname) == false)
+	if (open_socket_rx() == false)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to open raw packet socket\n");
@@ -5059,12 +4853,10 @@ byebye:
 	close_fds();
 	close_sockets();
 	close_lists();
-	if (interfacelistshortflag == true)
-		return EXIT_SUCCESS;
 	fprintf(stdout, "\n\033[?25h");
 	if (errorcount > 0)
 		fprintf(stderr, "%" PRIu64 " ERROR(s) during runtime\n", errorcount);
-#ifdef STATUSOUT
+		
 	if (totalcapturedcount > 0)
 		fprintf(stdout, "%ld packet(s) captured\n", totalcapturedcount);
 	if (wshbcount > 0)
@@ -5075,8 +4867,11 @@ byebye:
 		fprintf(stdout, "%ld ECB written to pcapng dumpfile\n", wecbcount);
 	if (wepbcount > 0)
 		fprintf(stdout, "%ld EPB written to pcapng dumpfile\n", wepbcount);
-#endif
+
 	fprintf(stdout, "\n");
+
+	// How did we exit?
+	/*---------------------------------------------------------------------------*/
 	if (exiteapolflag != 0)
 	{
 		if ((wanteventflag & EXIT_ON_EAPOL_PMKID) == EXIT_ON_EAPOL_PMKID)
@@ -5086,6 +4881,7 @@ byebye:
 		if ((wanteventflag & EXIT_ON_EAPOL_M3) == EXIT_ON_EAPOL_M3)
 			fprintf(stdout, "exit on EAPOL M1M2M3\n");
 	}
+
 	if ((wanteventflag & EXIT_ON_SIGTERM) == EXIT_ON_SIGTERM)
 	{
 		fprintf(stdout, "exit on sigterm\n");
@@ -5104,5 +4900,5 @@ byebye:
 	}
 	fprintf(stdout, "bye-bye\n\n");
 	return EXIT_SUCCESS;
+	/*---------------------------------------------------------------------------*/
 }
-/*===========================================================================*/

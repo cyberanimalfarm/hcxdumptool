@@ -2,12 +2,8 @@ PRODUCTION		:= 0
 PRODUCTION_VERSION	:= 6.3.1
 PRODUCTION_YEAR		:= 2023
 
-ifeq ($(PRODUCTION),1)
-VERSION_TAG		:= $(PRODUCTION_VERSION)
-else
-VERSION_TAG		:= $(shell git describe --tags || echo $(PRODUCTION_VERSION))
-endif
 VERSION_YEAR		:= $(shell echo $(PRODUCTION_YEAR))
+VERSION_TAG		:= $(PRODUCTION_VERSION)
 
 PREFIX		?= /usr
 BINDIR		= $(DESTDIR)$(PREFIX)/bin
@@ -15,7 +11,7 @@ BINDIR		= $(DESTDIR)$(PREFIX)/bin
 HOSTOS		:= $(shell uname -s)
 
 CC		?= gcc
-CFLAGS		?= -O3 -Wall -Wextra -Wpedantic
+CFLAGS		?= -O3 -Wall -Wextra -Wpedantic -c
 CFLAGS		+= -std=gnu99
 #CFLAGS		+= -ggdb -fsanitize=address
 DEFS		= -DVERSION_TAG=\"$(VERSION_TAG)\" -DVERSION_YEAR=\"$(VERSION_YEAR)\"
