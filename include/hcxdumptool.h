@@ -75,7 +75,6 @@
 
 /*---------------------------------------------------------------------------*/
 #define EXIT_ON_SIGTERM 0x01
-#define EXIT_ON_GPIOBUTTON 0x02
 #define EXIT_ON_TOT 0x04
 #define EXIT_ON_WATCHDOG 0x08
 #define EXIT_ON_EAPOL_PMKID 0x10

@@ -15,8 +15,8 @@ static pid_t hcxpid = 0;
 
 static unsigned int seed = 7;
 
-static int fd_socket_nl = 0;
-static int fd_socket_rt = 0;
+static int fd_socket_nl = 0; // netlink socket
+static int fd_socket_rt = 0; // netlink route socket
 static int fd_socket_unix = 0;
 static int fd_socket_rx = 0;
 static int fd_socket_tx = 0;
@@ -475,6 +475,9 @@ static inline void show_realtime_rca(void)
 	return;
 }
 /*---------------------------------------------------------------------------*/
+
+// TODO: Go through this and identify the value's of interest so we can start coming up with the SCHEMA for IPC.
+
 static inline void show_realtime(void)
 {
 	static size_t i;
@@ -2729,24 +2732,44 @@ static bool nl_scanloop(void)
 	static size_t packetcountlast = 0;
 	static u64 timer1count;
 
+	// Some straight Linux magic right here.
+	// Create and get FD of epoll instance.
 	if ((fd_epoll = epoll_create(1)) < 0)
 		return false;
+
+	// Add fd_socket_rx to epoll interest list. Register to events on the rx socket.
 	ev.data.fd = fd_socket_rx;
 	ev.events = EPOLLIN;
 	if (epoll_ctl(fd_epoll, EPOLL_CTL_ADD, fd_socket_rx, &ev) < 0)
 		return false;
 	epi++;
 
+	// Add fd_timer1 to epoll interest list. Register to events on the timer FD.
 	ev.data.fd = fd_timer1;
 	ev.events = EPOLLIN;
 	if (epoll_ctl(fd_epoll, EPOLL_CTL_ADD, fd_timer1, &ev) < 0)
 		return false;
 	epi++;
 
+
+	// wanteventflag is a u8 set of fbitlags to track the "exit state" of the program using a single byte. If any flag gets tripped, the program will exit.
+	// EXIT_ON_SIGTERM 0x01			: 00000001
+	// EXIT_ON_TOT 0x04				: 00000100
+	// EXIT_ON_WATCHDOG 0x08		: 00001000
+	// EXIT_ON_EAPOL_PMKID 0x10		: 00010000
+	// EXIT_ON_EAPOL_M2 0x20		: 00100000
+	// EXIT_ON_EAPOL_M3 0x40 		: 01000000
+	// EXIT_ON_ERROR 0x80 			: 10000000
+
 	while (!wanteventflag)
 	{
+
+		// Handle errorcount reaching errormaxcount
 		if (errorcount > errorcountmax)
 			wanteventflag |= EXIT_ON_ERROR;
+
+		// Wait for an event from the epoll instance (from our timer or the rx socket) Timeout is 100 by default
+		// epret = number of fd's ready.
 		epret = epoll_pwait(fd_epoll, events, epi, timerwaitnd, NULL);
 		if (epret == -1)
 		{
@@ -2754,18 +2777,33 @@ static bool nl_scanloop(void)
 				errorcount++;
 			continue;
 		}
+
+		// iterate through FD events
 		for (i = 0; i < epret; i++)
 		{
-			if (events[i].data.fd == fd_socket_rx)
-				process_packet();
-			else if (events[i].data.fd == fd_timer1)
+			// Process FD by type
+			if (events[i].data.fd == fd_socket_rx) // Event came from fd_socket_rx (we got a packet)
+				process_packet(); // process the packet.
+			else if (events[i].data.fd == fd_timer1) // The event came from the timer.
 			{
+				// The timer is set to fire every 1second, so every second the event will fire.
+
+				// Handle error in time.
 				if (read(fd_timer1, &timer1count, sizeof(u64)) == -1)
 					errorcount++;
+
+				// lifetime of program goes up by one (beacuse interval is seconds)
 				lifetime++;
+
+				// Get time from CLOCK_REALTIME and asssign to tspecakt
 				clock_gettime(CLOCK_REALTIME, &tspecakt);
+				// join seconds and nanoseconds to get one complete nanosecond value, store in tsakt.
 				tsakt = ((u64)tspecakt.tv_sec * 1000000000ULL) + tspecakt.tv_nsec;
+
+				// show realtime function gets called from here.
 				show_realtime();
+
+				// Handle channel switching.
 				if ((tsakt - tshold) > timehold)
 				{
 					scanlistindex++;
@@ -2774,8 +2812,11 @@ static bool nl_scanloop(void)
 					tshold = tsakt;
 				}
 				
+				// Handle timeout timer.
 				if ((tottime > 0) && (lifetime >= tottime))
 					wanteventflag |= EXIT_ON_TOT;
+
+				// Handle watchdog timer.
 				if ((lifetime % watchdogcountmax) == 0)
 				{
 					if (packetcount == packetcountlast)
@@ -2785,6 +2826,7 @@ static bool nl_scanloop(void)
 			}
 
 		}
+		// if nothing was waiting for us, send a beacon. (I'm assuming to spice up the airwaves?)
 		if (epret == 0)
 			send_80211_beacon();
 	}
@@ -3987,6 +4029,7 @@ static bool open_socket_rx()
 
 /*===========================================================================*/
 /* CONTROL SOCKETS */
+
 static void close_sockets(void)
 {
 	if (fd_socket_unix != 0)
@@ -4276,6 +4319,7 @@ static int fgetline(FILE *inputstream, size_t size, char *buffer)
 }
 
 /*===========================================================================*/
+
 bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
     
     pcap_t *handle;
