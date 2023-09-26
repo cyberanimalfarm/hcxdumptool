@@ -9,9 +9,9 @@ net-nomad-hcx is a controller program used to demonstrate the use-case.
 Install
 --------------
 
-`make`
+```make```
 
 Clean Up
 --------------
 
-`make cleanall`
+```make cleanall```
