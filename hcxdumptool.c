@@ -51,9 +51,9 @@ static frequencylist_t *scanlist = NULL;
 
 static interface_t *ifpresentlist;
 
-static aplist_t *aplist = NULL;
-static aprglist_t *aprglist = NULL;
-static clientlist_t *clientlist = NULL;
+static aplist_t *aplist = NULL; // AP List (For AP Interaction)
+static aprglist_t *aprglist = NULL; // Rogue AP List (For Client Interaction)
+static clientlist_t *clientlist = NULL; // Client List (For AP / Client Interaction)
 static maclist_t *maclist = NULL;
 static u64 lifetime = 0;
 static u32 ouiaprg = 0;
@@ -353,7 +353,6 @@ static u8 anoncerg[32] = {0};
 static u8 snoncerg[32] = {0};
 static char weakcandidate[PSK_MAX];
 static char timestring1[TIMESTRING_LEN];
-static char timestring2[TIMESTRING_LEN];
 
 static char country[3];
 
@@ -428,55 +427,6 @@ static void show_interfacecapabilities2(void)
 }
 
 /*---------------------------------------------------------------------------*/
-static inline void show_realtime_rca(void)
-{
-	static size_t i;
-	static size_t p;
-	static time_t tvlastb;
-	static time_t tvlastp;
-	static char *ak;
-	static char *pmdef = " ";
-	static char *pmok = "+";
-	static char *notime = "        ";
-
-	if (system("clear") != 0)
-		errorcount++;
-	qsort(aplist, i + 1, APLIST_SIZE, sort_aplist_by_tsakt);
-	sprintf(&rtb[0], "  CHA  FREQ   BEACON  RESPONSE S   MAC-AP   ESSID  SCAN-FREQUENCY: %6u\n"
-					 "--------------------------------------------------------------------------\n",
-			(scanlist + scanlistindex)->frequency);
-	p = strlen(rtb);
-	i = 0;
-	for (i = 0; i < 40; i++)
-	{
-		if ((aplist + i)->tsakt == 0)
-			break;
-		if (((aplist + i)->ie.flags & APAKM_MASK) != 0)
-			ak = pmok;
-		else
-			ak = pmdef;
-		tvlastb = (aplist + i)->tsakt / 1000000000ULL;
-		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlastb));
-		if (((aplist + i)->status & AP_PROBERESPONSE) == AP_PROBERESPONSE)
-		{
-			tvlastp = (aplist + i)->tsauth / 1000000000ULL;
-			strftime(timestring2, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlastp));
-		}
-		else
-			strncpy(timestring2, notime, TIMESTRING_LEN);
-		sprintf(&rtb[p], " [%3d %5d] %s %s %s %02x%02x%02x%02x%02x%02x %.*s\n",
-				(aplist + i)->ie.channel, (aplist + i)->count, timestring1, timestring2, ak,
-				(aplist + i)->macap[0], (aplist + i)->macap[1], (aplist + i)->macap[2], (aplist + i)->macap[3], (aplist + i)->macap[4], (aplist + i)->macap[5],
-				(aplist + i)->ie.essidlen, (aplist + i)->ie.essid);
-		p = strlen(rtb);
-	}
-	rtb[p] = 0;
-	fprintf(stdout, "%s", rtb);
-	return;
-}
-/*---------------------------------------------------------------------------*/
-
-// TODO: Go through this and identify the value's of interest so we can start coming up with the SCHEMA for IPC.
 
 static inline void show_realtime(void)
 {
@@ -493,8 +443,11 @@ static inline void show_realtime(void)
 	static char *ak;
 	static char *ar;
 
+	// clear terminal
 	if (system("clear") != 0)
 		errorcount++;
+
+	// check sort value and print header
 	if (rdsort == 0)
 	{
 		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_tsakt);
@@ -509,46 +462,67 @@ static inline void show_realtime(void)
 						 "-----------------------------------------------------------------------------------------\n",
 				(scanlist + scanlistindex)->frequency);
 	}
-	p = strlen(rtb);
-	i = 0;
-	pa = 0;
-	for (i = 0; i < 20; i++)
+
+	p = strlen(rtb); // The current line (strlen(rtb) will give us the next empty line)
+	i = 0; // Index of AP
+	pa = 0; // Index of AP
+
+	// ( aplist+i ) = AP 	
+	for (i = 0; i < 3; i++)
 	{
 		if ((aplist + i)->tsakt == 0)
-			break;
+			break; // No more AP's
+
 		if (((aplist + i)->status & AP_EAPOL_M1) == AP_EAPOL_M1)
 			mc = pmok;
 		else
 			mc = pmdef;
+
 		if (((aplist + i)->status & AP_EAPOL_M3) == AP_EAPOL_M3)
 			ma = pmok;
 		else
 			ma = pmdef;
+
 		if (((aplist + i)->status & AP_PMKID) == AP_PMKID)
 			ps = pmok;
 		else
 			ps = pmdef;
+
 		if (((aplist + i)->ie.flags & APAKM_MASK) != 0)
 			ak = pmok;
 		else
 			ak = pmdef;
+
 		if (((aplist + i)->status & AP_IN_RANGE) == AP_IN_RANGE)
 			ar = pmok;
 		else
 			ar = pmdef;
+
+		// Generate Last Seen
 		tvlast = (aplist + i)->tsakt / 1000000000ULL;
 		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
+		
+		// Move entry to rtb
 		sprintf(&rtb[p], " [%3d] %s %s %s %s %s %s %02x%02x%02x%02x%02x%02x %.*s\n",
 				(aplist + i)->ie.channel, timestring1, ar, mc, ma, ps, ak,
 				(aplist + i)->macap[0], (aplist + i)->macap[1], (aplist + i)->macap[2], (aplist + i)->macap[3], (aplist + i)->macap[4], (aplist + i)->macap[5],
 				(aplist + i)->ie.essidlen, (aplist + i)->ie.essid);
+		
+		// If AP last seen time > 120, reset AP_IN_RANGE flag to 0. 
 		if (tsakt - (aplist + i)->tsakt > AP_IN_RANGE_TOT)
 			(aplist + i)->status = ((aplist + i)->status & AP_IN_RANGE_MASK);
+
 		p = strlen(rtb);
 		pa++;
 	}
-	for (i = 0; i < (22 - pa); i++)
+	
+	// Add blank lines
+	// 22 lines below the top (max PA is 3, so if 3 listed add two blanks)
+	for (i = 0; i < (5 - pa); i++)
 		rtb[p++] = '\n';
+
+	// CLIENTS
+
 	if (rdsort == 0)
 	{
 		qsort(clientlist, CLIENTLIST_MAX, CLIENTLIST_SIZE, sort_clientlist_by_tsakt);
@@ -561,37 +535,51 @@ static inline void show_realtime(void)
 		sprintf(&rtb[p], "   LAST   E 2 MAC-AP-ROGUE   MAC-CLIENT   ESSID (last M2ROGUE on top)\n"
 						 "-----------------------------------------------------------------------------------------\n");
 	}
-	p = strlen(rtb);
-	for (i = 0; i < 20; i++)
+	p = strlen(rtb); // Get next empty
+
+	for (i = 0; i < 20; i++) // List 20 clients
 	{
 		if ((clientlist + i)->tsakt == 0)
-			break;
+			break; // no more clients
 		if (((clientlist + i)->status & CLIENT_EAP_START) == CLIENT_EAP_START)
-			me = pmok;
+			me = pmok; // EAP START
 		else
-			me = pmdef;
+			me = pmdef; // NO EAP START
+
+
 		if (((clientlist + i)->status & CLIENT_EAPOL_M2) == CLIENT_EAPOL_M2)
-			mc = pmok;
+			mc = pmok; // EAPOL M2
 		else
-			mc = pmdef;
+			mc = pmdef; // NO EAPOL M2
+
+		// Generate "Last Seen" as timestring1
 		tvlast = (clientlist + i)->tsakt / 1000000000ULL;
 		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
+		
+		
 		sprintf(&rtb[p], " %s %s %s %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %.*s\n",
 				timestring1, me, mc,
-				(clientlist + i)->macap[0], (clientlist + i)->macap[1], (clientlist + i)->macap[2], (clientlist + i)->macap[3], (clientlist + i)->macap[4], (clientlist + i)->macap[5],
-				(clientlist + i)->macclient[0], (clientlist + i)->macclient[1], (clientlist + i)->macclient[2], (clientlist + i)->macclient[3], (clientlist + i)->macclient[4], (clientlist + i)->macclient[5],
-				(clientlist + i)->ie.essidlen, (clientlist + i)->ie.essid);
-		p = strlen(rtb);
+				(clientlist + i)->macap[0], (clientlist + i)->macap[1], (clientlist + i)->macap[2], (clientlist + i)->macap[3], (clientlist + i)->macap[4], (clientlist + i)->macap[5], // mac addr
+				(clientlist + i)->macclient[0], (clientlist + i)->macclient[1], (clientlist + i)->macclient[2], (clientlist + i)->macclient[3], (clientlist + i)->macclient[4], (clientlist + i)->macclient[5], // ,ac addr
+				(clientlist + i)->ie.essidlen, (clientlist + i)->ie.essid); // essid formated to length of essid.
+		p = strlen(rtb); // get next empty
 	}
-	rtb[p] = 0;
-	fprintf(stdout, "%s", rtb);
+
+	rtb[p] = 0; // end string with 0
+	fprintf(stdout, "%s", rtb); // print rtb string to stdout
+
+	// re-sort the lists for the next go around
+
 	if (rdsort > 0)
 	{
 		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_tsakt);
 		qsort(clientlist, CLIENTLIST_MAX, CLIENTLIST_SIZE, sort_clientlist_by_tsakt);
 	}
+
 	return;
 }
+
+
 /*===========================================================================*/
 /* frequency handling */
 /*---------------------------------------------------------------------------*/
@@ -670,22 +658,7 @@ static u16 addoption(u8 *posopt, u16 optioncode, u16 optionlen, char *option)
 	return optionlen + padding + 4;
 }
 /*---------------------------------------------------------------------------*/
-/*
-static u16 addcustomoptionheader(u8 *pospt)
-{
-static u16 colen;
-static option_header_t *optionhdr;
 
-optionhdr = (option_header_t*)pospt;
-optionhdr->option_code = SHB_CUSTOM_OPT;
-colen = OH_SIZE;
-memcpy(pospt +colen, &hcxmagic, 4);
-colen += 4;
-memcpy(pospt +colen, &hcxmagic, 32);
-colen += 32;
-return colen;
-}
-*/
 /*===========================================================================*/
 static u16 addcustomoption(u8 *pospt)
 {
@@ -2273,51 +2246,7 @@ static inline void process80211proberequest_undirected(void)
 	return;
 }
 /*---------------------------------------------------------------------------*/
-/*---------------------------------------------------------------------------*/
-static inline void process80211proberesponse_rca(void)
-{
-	static size_t i;
-	static ieee80211_beacon_proberesponse_t *proberesponse;
-	static u16 proberesponselen;
 
-	proberesponse = (ieee80211_beacon_proberesponse_t *)payloadptr;
-	if ((proberesponselen = payloadlen - IEEE80211_PROBERESPONSE_SIZE) < IEEE80211_IETAG_SIZE)
-		return;
-	for (i = 0; i < APLIST_MAX - 1; i++)
-	{
-		if (memcmp(macfrx->addr3, (aplist + i)->macap, ETH_ALEN) != 0)
-			continue;
-		if (memcmp(&macclientrg, macfrx->addr1, 3) == 0)
-			(aplist + i)->tsauth = tsakt;
-		if (((aplist + i)->status & AP_PROBERESPONSE) == 0)
-			(aplist + i)->status |= AP_PROBERESPONSE;
-		tagwalk_channel_essid_rsn(&(aplist + i)->ie, proberesponselen, proberesponse->ie);
-		if ((aplist + i)->ie.channel == 0)
-			(aplist + i)->ie.channel = (scanlist + scanlistindex)->channel;
-		if (((aplist + i)->ie.flags & APIE_ESSID) == APIE_ESSID)
-			(aplist + i)->status |= AP_ESSID;
-		(aplist + i)->count = (scanlist + scanlistindex)->frequency;
-		return;
-	}
-	memset((aplist + i), 0, APLIST_SIZE);
-	(aplist + i)->tsakt = tsakt;
-	(aplist + i)->tshold1 = tsakt;
-	(aplist + i)->tsauth = tsfirst;
-	(aplist + i)->count = attemptapmax;
-	memcpy((aplist + i)->macap, macfrx->addr3, ETH_ALEN);
-	memcpy((aplist + i)->macclient, &macbc, ETH_ALEN);
-	(aplist + i)->status |= AP_PROBERESPONSE;
-	tagwalk_channel_essid_rsn(&(aplist + i)->ie, proberesponselen, proberesponse->ie);
-	if ((aplist + i)->ie.channel == 0)
-		(aplist + i)->ie.channel = (scanlist + scanlistindex)->channel;
-	if ((aplist + i)->ie.channel != (scanlist + scanlistindex)->channel)
-		return;
-	if (((aplist + i)->ie.flags & APIE_ESSID) == APIE_ESSID)
-		(aplist + i)->status |= AP_ESSID;
-	(aplist + i)->count = (scanlist + scanlistindex)->frequency;
-	qsort(aplist, i + 1, APLIST_SIZE, sort_aplist_by_tsakt);
-	return;
-}
 /*---------------------------------------------------------------------------*/
 static inline void process80211proberesponse(void)
 {
@@ -2382,48 +2311,6 @@ static inline void process80211proberesponse(void)
 	writeepb();
 	qsort(aplist, i + 1, APLIST_SIZE, sort_aplist_by_tsakt);
 	tshold = tsakt;
-	return;
-}
-/*---------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) void process80211beacon_rca(void)
-{
-	static size_t i;
-	static ieee80211_beacon_proberesponse_t *beacon;
-	static u16 beaconlen;
-
-	beacon = (ieee80211_beacon_proberesponse_t *)payloadptr;
-	if ((beaconlen = payloadlen - IEEE80211_BEACON_SIZE) < IEEE80211_IETAG_SIZE)
-		return;
-	for (i = 0; i < APLIST_MAX - 1; i++)
-	{
-		if (memcmp(macfrx->addr3, (aplist + i)->macap, ETH_ALEN) != 0)
-			continue;
-		(aplist + i)->tsakt = tsakt;
-		if (((aplist + i)->status & AP_BEACON) == 0)
-			(aplist + i)->status |= AP_BEACON;
-		tagwalk_channel_essid_rsn(&(aplist + i)->ie, beaconlen, beacon->ie);
-		if ((aplist + i)->ie.channel == 0)
-			(aplist + i)->ie.channel = (scanlist + scanlistindex)->channel;
-		if ((aplist + i)->ie.channel != (scanlist + scanlistindex)->channel)
-			return;
-		(aplist + i)->count = (scanlist + scanlistindex)->frequency;
-		return;
-	}
-	memset((aplist + i), 0, APLIST_SIZE);
-	(aplist + i)->tsakt = tsakt;
-	(aplist + i)->tshold1 = tsakt;
-	(aplist + i)->tsauth = tsfirst;
-	(aplist + i)->count = attemptapmax;
-	memcpy((aplist + i)->macap, macfrx->addr3, ETH_ALEN);
-	memcpy((aplist + i)->macclient, &macbc, ETH_ALEN);
-	(aplist + i)->status |= AP_BEACON;
-	tagwalk_channel_essid_rsn(&(aplist + i)->ie, beaconlen, beacon->ie);
-	if ((aplist + i)->ie.channel == 0)
-		(aplist + i)->ie.channel = (scanlist + scanlistindex)->channel;
-	if ((aplist + i)->ie.channel != (scanlist + scanlistindex)->channel)
-		return;
-	(aplist + i)->count = (scanlist + scanlistindex)->frequency;
-	qsort(aplist, i + 1, APLIST_SIZE, sort_aplist_by_tsakt);
 	return;
 }
 /*---------------------------------------------------------------------------*/
@@ -2556,63 +2443,6 @@ static inline __attribute__((always_inline)) void process80211beacon(void)
 }
 /*===========================================================================*/
 
-/*===========================================================================*/
-static inline __attribute__((always_inline)) void process_packet_rca(void)
-{
-	if ((packetlen = read(fd_socket_rx, packetptr, PCAPNG_SNAPLEN)) < RTHRX_SIZE)
-	{
-		if (packetlen == -1)
-			errorcount++;
-		return;
-	}
-	totalcapturedcount++;
-	rth = (rth_t *)packetptr;
-#ifndef __LITTLE_ENDIAN__
-	if ((rth->it_present & IEEE80211_RADIOTAP_DBM_ANTSIGNAL) == 0)
-		return;
-	if (rth->it_len > packetlen)
-	{
-		errorcount++;
-		return;
-	}
-	ieee82011ptr = packetptr + rth->it_len;
-	ieee82011len = packetlen - rth->it_len;
-#else
-	if ((le32toh(rth->it_present) & IEEE80211_RADIOTAP_DBM_ANTSIGNAL) == 0)
-		return;
-	if (le16toh(rth->it_len) > packetlen)
-	{
-		errorcount++;
-		return;
-	}
-	ieee82011ptr = packetptr + le16toh(rth->it_len);
-	ieee82011len = packetlen - le16toh(rth->it_len);
-#endif
-	if (ieee82011len <= MAC_SIZE_RTS)
-		return;
-	macfrx = (ieee80211_mac_t *)ieee82011ptr;
-	if ((macfrx->from_ds == 1) && (macfrx->to_ds == 1))
-	{
-		payloadptr = ieee82011ptr + MAC_SIZE_LONG;
-		payloadlen = ieee82011len - MAC_SIZE_LONG;
-	}
-	else
-	{
-		payloadptr = ieee82011ptr + MAC_SIZE_NORM;
-		payloadlen = ieee82011len - MAC_SIZE_NORM;
-	}
-	clock_gettime(CLOCK_REALTIME, &tspecakt);
-	tsakt = ((u64)tspecakt.tv_sec * 1000000000ULL) + tspecakt.tv_nsec;
-	packetcount++;
-	if (macfrx->type == IEEE80211_FTYPE_MGMT)
-	{
-		if (macfrx->subtype == IEEE80211_STYPE_BEACON)
-			process80211beacon_rca();
-		else if (macfrx->subtype == IEEE80211_STYPE_PROBE_RESP)
-			process80211proberesponse_rca();
-	}
-	return;
-}
 /*---------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) void process_packet(void)
 {
@@ -2833,8 +2663,6 @@ static bool nl_scanloop(void)
 	return true;
 }
 /*===========================================================================*/
-
-
 
 
 /*===========================================================================*/
@@ -4111,6 +3939,7 @@ static bool open_control_sockets(void)
 	return true;
 }
 /*===========================================================================*/
+
 /* TIMER */
 static bool set_timer(void)
 {
@@ -4126,22 +3955,9 @@ static bool set_timer(void)
 		return false;
 	return true;
 }
-/*---------------------------------------------------------------------------*/
-static bool set_timer_rca(void)
-{
-	static struct itimerspec tval1;
 
-	if ((fd_timer1 = timerfd_create(CLOCK_BOOTTIME, 0)) < 0)
-		return false;
-	tval1.it_value.tv_sec = TIMER_RCA_VALUE_SEC;
-	tval1.it_value.tv_nsec = TIMER_RCA_VALUE_NSEC;
-	tval1.it_interval.tv_sec = TIMER_RCA_INTERVAL_SEC;
-	tval1.it_interval.tv_nsec = TIMER_RCA_INTERVAL_NSEC;
-	if (timerfd_settime(fd_timer1, 0, &tval1, NULL) == -1)
-		return false;
-	return true;
-}
 /*===========================================================================*/
+
 /* SIGNALHANDLER */
 static void signal_handler(int signum)
 {
@@ -4413,7 +4229,7 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-int entrypoint(char* iname, char* target_mac, char* channel_list)
+int hcx(char* iname, char* target_mac, char* channel_list)
 {
 	// Setup options
 	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
@@ -4580,15 +4396,6 @@ int entrypoint(char* iname, char* target_mac, char* channel_list)
 		errorcount++;
 		fprintf(stderr, "failed to initialize timer\n");
 		goto byebye;
-	}
-	else
-	{
-		if (set_timer_rca() == false)
-		{
-			errorcount++;
-			fprintf(stderr, "failed to initialize timer\n");
-			goto byebye;
-		}
 	}
 	/*---------------------------------------------------------------------------*/
 	tspecifo.tv_sec = 5;

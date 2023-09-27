@@ -5,3 +5,4 @@ lib/*.a
 .vscode/*
 *.pcapng
 net-nomad-hcx
+*.hc22000

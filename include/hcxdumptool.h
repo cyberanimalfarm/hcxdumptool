@@ -44,36 +44,9 @@
 #define VERSION_TAG "6.3.1"
 #define VERSION_YEAR "2023"
 
-#define HCX_BPF 1
-#define HCX_DISABLE_BEACON 2
-#define HCX_DISABLE_DEAUTHENTICATION 3
-#define HCX_DISABLE_PROBEREQUEST 4
-#define HCX_DISABLE_ASSOCIATION 5
-#define HCX_DISABLE_REASSOCIATION 6
-#define HCX_BEACONTX_MAX 7
-#define HCX_PROBERESPONSETX_MAX 8
-#define HCX_GPIO_BUTTON 9
-#define HCX_GPIO_STATUSLED 10
-#define HCX_TOT 11
-#define HCX_ERROR_MAX 12
-#define HCX_WATCHDOG_MAX 13
-#define HCX_ATTEMPT_CLIENT_MAX 14
-#define HCX_ATTEMPT_AP_MAX 15
-#define HCX_ON_SIGTERM 16
-#define HCX_ON_TOT 17
-#define HCX_ON_GPIOBUTTON 18
-#define HCX_ON_WATCHDOG 19
-#define HCX_EXIT_ON_EAPOL 20
-#define HCX_ON_ERROR 21
-#define HCX_ESSIDLIST 22
-#define HCX_NMEA0183 23
-#define HCX_GPSD 24
-#define HCX_NMEA0183_OUT 25
-#define HCX_NMEA0183_PCAPNG 26
-#define HCX_RCASCAN 27
-#define HCX_RD_SORT 28
-
 /*---------------------------------------------------------------------------*/
+
+// wanteventflag items
 #define EXIT_ON_SIGTERM 0x01
 #define EXIT_ON_TOT 0x04
 #define EXIT_ON_WATCHDOG 0x08
@@ -92,16 +65,12 @@
 #define IFTYPEMONACT 0x04
 #define ETHTOOL_STD_LEN 32
 
+// Timer Vals
 #define TIMER_EPWAITND 100
 #define TIMER1_VALUE_SEC 1L
 #define TIMER1_VALUE_NSEC 0L
 #define TIMER1_INTERVAL_SEC 1L
 #define TIMER1_INTERVAL_NSEC 0L
-
-#define TIMER_RCA_VALUE_SEC 0L
-#define TIMER_RCA_VALUE_NSEC 200000000L
-#define TIMER_RCA_INTERVAL_SEC 0L
-#define TIMER_RCA_INTERVAL_NSEC 200000000L
 
 #define TIMEHOLD 1000000000ULL
 #define TIMEBEACONNEW 3600000000000ULL
@@ -408,4 +377,4 @@ static inline bool nl_set_frequency();
 
 // Our custom entrypoint / code
 
-int entrypoint(char* iname, char* target_mac, char* channel_list);
+int hcx(char* iname, char* target_mac, char* channel_list);

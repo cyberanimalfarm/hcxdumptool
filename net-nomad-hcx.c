@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
     // Validate Channels
     int len = sizeof(channels)/sizeof(channels[0]);
     char* token;
-    char* rest = channel_list;
     char *copy = (char *)malloc(strlen(channel_list) + 1);
     strcpy(copy, channel_list);
     token = strtok(copy, ",");
@@ -63,5 +62,5 @@ int main(int argc, char **argv) {
     }
 
     // Kickoff HCX with our params
-    entrypoint(iname, target_mac, channel_list);
+    int aps = hcx(iname, target_mac, channel_list);
 }
