@@ -25,6 +25,7 @@ typedef struct __attribute__((__packed__))
     u8 macclient[6]; // client mac we used to interact
     u8 status; // flags (see below)
 // status flags
+                                // 00011111
 #define AP_IN_RANGE 0x01        // 00000001
 #define AP_ESSID 0x02           // 00000010
 #define AP_BEACON 0x04          // 00000100

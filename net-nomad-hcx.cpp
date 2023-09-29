@@ -1,5 +1,16 @@
 #include "include/hcxdumptool.h" // static library header
+#include "include/nlohmann/json.hpp"
+#include <string>
+#include <iostream>
+#include <bitset>
 
+
+// for convenience
+using json = nlohmann::json;
+using namespace std;
+
+
+static char timestring1[TIMESTRING_LEN];
 const char* channels[] = {"1a","2a","3a","4a","5a","6a","7a","8a","9a","10a","11a","12a","13a","14a","34b","36b","38b","40b","42b","44b","46b","48b","52b","56b","60b","64b","100b","104b","108b","112b","116b","120b","124b","128b","132b","136b","140b","144b","149b","153b","157b","161b","165b"};
 
 void print_usage(char* name) {
@@ -15,6 +26,7 @@ void print_usage(char* name) {
     printf("              band d: NL80211_BAND_60GHZ\n");
     exit(1);
 }
+
 
 int main(int argc, char **argv) {
 
@@ -56,11 +68,44 @@ int main(int argc, char **argv) {
         }
         if (!f) {
             printf("%s not a valid channel.\n", token);
+            std::cout << token << " is not a valid channel." << std::endl;
             print_usage(argv[0]);
         }
         token = strtok(NULL, ",");
     }
 
     // Kickoff HCX with our params
-    int aps = hcx(iname, target_mac, channel_list);
+    aplist_t* aplist = hcx(iname, target_mac, channel_list);
+
+    json j;
+
+
+    for (int i = 0; i < 5; i++)
+	{
+		if ((aplist + i)->tsakt == 0)
+			break; // No more AP's
+        
+        
+        json a;
+	    static time_t tvlast;
+        tvlast = (aplist + i)->tsakt / 1000000000ULL;
+		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
+        a["tsakt"] = timestring1;
+        a["tshold1"] = +(aplist + i)->tshold1;
+        a["tsauth"] = +(aplist + i)->tsauth;
+        a["count"] = +(aplist + i)->count;
+        char macap[18];
+        snprintf(macap, sizeof(macap), "%02x:%02x:%02x:%02x:%02x:%02x", +(aplist + i)->macap[0], +(aplist + i)->macap[1], +(aplist + i)->macap[2], +(aplist + i)->macap[3], +(aplist + i)->macap[4], +(aplist + i)->macap[5]);
+        std::cout << macap << std::endl;
+        a["macap"] = macap;
+        std::bitset<8> bitstatus((aplist + i)->status);
+        a["status"] = bitstatus.to_string();
+        j[macap] = a;
+    }
+
+    
+    std::cout << "Data:" << std::endl;
+    std::cout << j << std::endl;
+
+    return 0;
 }

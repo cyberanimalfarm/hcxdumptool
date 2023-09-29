@@ -1,10 +1,13 @@
+CXXFLAGS = -std=c++latest
+
+
 all: net-nomad-hcx clean
 
 net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a
-		gcc -Wall -o net-nomad-hcx net-nomad-hcx.c -lhcxdumptool -lpcap -Llib -Iinclude
+		g++ -Wall -o net-nomad-hcx net-nomad-hcx.cpp -lhcxdumptool -lpcap -Llib -Iinclude
 
-net-nomad-hcx.o: net-nomad-hcx.c
-		gcc -O -c net-nomad-hcx.c
+net-nomad-hcx.o: net-nomad-hcx.cpp
+		g++ -O -c net-nomad-hcx.cpp
 
 hcxdumptool.o: hcxdumptool.c include/hcxdumptool.h
 		gcc -c -Wall -Werror -fPIC hcxdumptool.c

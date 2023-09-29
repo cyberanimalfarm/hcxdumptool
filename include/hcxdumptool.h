@@ -372,9 +372,25 @@ typedef struct
 
 static inline bool nl_set_frequency();
 
+static aplist_t *aplist;
+static aprglist_t *aprglist;
+static clientlist_t *clientlist;
 
 /*===========================================================================*/
 
 // Our custom entrypoint / code
 
-int hcx(char* iname, char* target_mac, char* channel_list);
+
+#ifdef __cplusplus
+// this opens an extern "C" block, but only if being included for a C++ compile
+//  if this is being included in a C compile, the extern "C" bits won't be seen
+extern "C" {
+#endif
+
+aplist_t* hcx(char* iname, char* target_mac, char* channel_list);
+
+
+#ifdef __cplusplus
+// close the extern "C" block, but only if we started it in the first place
+}
+#endif

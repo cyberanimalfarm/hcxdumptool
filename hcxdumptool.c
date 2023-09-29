@@ -4229,7 +4229,7 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-int hcx(char* iname, char* target_mac, char* channel_list)
+aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 {
 	// Setup options
 	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
@@ -4255,7 +4255,7 @@ int hcx(char* iname, char* target_mac, char* channel_list)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to generate BPF\n");
-		return false;
+		return aplist;
 	}
 
 	// Grab channel from arg
@@ -4465,6 +4465,6 @@ byebye:
 		fprintf(stdout, "exit on error\n");
 	}
 	fprintf(stdout, "bye-bye\n\n");
-	return EXIT_SUCCESS;
+	return aplist;
 	/*---------------------------------------------------------------------------*/
 }
