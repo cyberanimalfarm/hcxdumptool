@@ -386,13 +386,23 @@ static inline void send_lists();
 cJSON* aplist_jsonify(aplist_t *ap);
 cJSON* clientlist_jsonify(clientlist_t *client);
 
+static bool extend_and_copy_pcap(const void *__buf, size_t __n);
+static bool setup_pcap_buffer();
+
 #ifdef __cplusplus
 // this opens an extern "C" block, but only if being included for a C++ compile
 //  if this is being included in a C compile, the extern "C" bits won't be seen
 extern "C" {
 #endif
 
-int hcx(char* iname, char* target_mac, char* channel_list);
+typedef struct
+{
+    u8* result;
+    size_t len;
+} pcap_buffer_t;
+
+pcap_buffer_t* hcx(char* iname, char* target_mac, char* channel_list);
+
 
 
 #ifdef __cplusplus

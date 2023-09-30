@@ -24,6 +24,9 @@ static int fd_socket_tx = 0;
 static int fd_timer1 = 0;
 static int fd_pcapng = 0;
 
+static size_t pcap_buffer_size = 0;
+static u8* pcap_buffer;
+
 static u8 rdsort = 0;
 static long int totalcapturedcount = 0;
 static long int wecbcount = 0;
@@ -770,8 +773,10 @@ static inline void writeepbm1(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
-	if (write(fd_pcapng, &epbown, epblen) != epblen)
+	if (extend_and_copy_pcap(&epbown, epblen) != epblen)
 		errorcount++;
+	//if (write(fd_pcapng, &epbown, epblen) != epblen)
+	//	errorcount++;
 	wepbcount++;
 	return;
 }
@@ -799,8 +804,10 @@ static inline void writeepb(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
-	if (write(fd_pcapng, &epb, epblen) != epblen)
+	if (extend_and_copy_pcap(&epb, epblen) != epblen)
 		errorcount++;
+	//if (write(fd_pcapng, &epb, epblen) != epblen)
+	//	errorcount++;
 	wepbcount++;
 	return;
 }
@@ -836,8 +843,10 @@ static bool writeshb(void)
 	shblen += TOTAL_SIZE;
 	shbhdr->total_length = shblen;
 	totallength->total_length = shblen;
-	if (write(fd_pcapng, &shb, shblen) != shblen)
-		return false;
+	if (extend_and_copy_pcap(&shb, shblen) != shblen)
+		errorcount++;
+	//if (write(fd_pcapng, &shb, shblen) != shblen)
+	//	return false;
 	wshbcount++;
 	return true;
 }
@@ -866,8 +875,10 @@ static bool writeidb(void)
 	idblen += TOTAL_SIZE;
 	idbhdr->total_length = idblen;
 	totallength->total_length = idblen;
-	if (write(fd_pcapng, &idb, idblen) != idblen)
-		return false;
+	if (extend_and_copy_pcap(&idb, idblen) != idblen)
+		errorcount++;
+	//if (write(fd_pcapng, &idb, idblen) != idblen)
+	//	return false;
 	widbcount++;
 	return true;
 }
@@ -902,14 +913,16 @@ static bool writecb(void)
 	cblen += TOTAL_SIZE;
 	cbhdr->total_length = cblen;
 	totallength->total_length = cblen;
-	if (write(fd_pcapng, &cb, cblen) != cblen)
-		return false;
+	if (extend_and_copy_pcap(&cb, cblen) != cblen)
+		errorcount++;
+	//if (write(fd_pcapng, &cb, cblen) != cblen)
+	//	return false;
 	wecbcount++;
 	return true;
 }
 
 /*---------------------------------------------------------------------------*/
-static bool open_pcapng(char *pcapngoutname)
+/* static bool open_pcapng(char *pcapngoutname)
 {
 	static int c;
 	static struct stat statinfo;
@@ -919,7 +932,7 @@ static bool open_pcapng(char *pcapngoutname)
 	if (pcapngoutname == NULL)
 	{
 		c = 0;
-		snprintf(pcapngname, PATH_MAX, "%s-%s.pcapng", timestring1, ifaktname);
+		snprintf(pcapngname, PATH_MAX, "%s-%s.pcapng", timestring1, ifaktname);a
 		while (stat(pcapngname, &statinfo) == 0)
 		{
 			snprintf(pcapngname, PATH_MAX, "%s-%s-%02d.pcapng", timestring1, ifaktname, c);
@@ -939,7 +952,38 @@ static bool open_pcapng(char *pcapngoutname)
 	if (writecb() == false)
 		return false;
 	return true;
+} */
+
+static bool setup_pcap_buffer() {
+	pcap_buffer = (u8*)calloc(pcap_buffer_size + 1, sizeof(u8));
+    // Check if the memory has been successfully
+    // allocated by calloc or not
+    if (pcap_buffer == NULL) {
+        return false;
+    }
+	if (writeshb() == false)
+		return false;
+	if (writeidb() == false)
+		return false;
+	if (writecb() == false)
+		return false;
+	return true;
 }
+
+
+static bool extend_and_copy_pcap(const void *__buf, size_t __n) {
+	size_t pcap_new_total = pcap_buffer_size + __n;
+	
+	u8* newbuffer = realloc(pcap_buffer, pcap_new_total * sizeof(u8));
+	if (newbuffer == NULL) {
+		return false;
+	}
+	pcap_buffer = newbuffer;
+	memcpy(pcap_buffer+pcap_buffer_size, __buf, __n);
+	pcap_buffer_size = pcap_new_total;
+	return __n;
+}
+
 /*===========================================================================*/
 /*===========================================================================*/
 /* TX 802.11 */
@@ -4330,7 +4374,7 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	return clientlist_json;
 }
 
-int hcx(char *iname, char *target_mac, char *channel_list)
+pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 {
 	// Setup options
 	static u8 exiteapolflag = 0;				// Did we exit because of eapol needs being met? (damn i hope so)
@@ -4339,7 +4383,7 @@ int hcx(char *iname, char *target_mac, char *channel_list)
 	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
 	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
 	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
-	static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
+	//static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
 
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;
@@ -4355,7 +4399,7 @@ int hcx(char *iname, char *target_mac, char *channel_list)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to generate BPF\n");
-		return false;
+		exit(1);
 	}
 
 	// Grab channel from arg
@@ -4473,10 +4517,15 @@ int hcx(char *iname, char *target_mac, char *channel_list)
 	}
 	if (essidlistname != NULL)
 		read_essidlist(essidlistname);
-	if (open_pcapng(pcapngoutname) == false)
+	/* if (open_pcapng(pcapngoutname) == false)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to open dump file\n");
+		goto byebye;
+	} */
+	if (setup_pcap_buffer() == false) {
+		errorcount++;
+		fprintf(stderr, "failed to open pcapng buffer\n");
 		goto byebye;
 	}
 	if (open_socket_rx() == false)
@@ -4502,7 +4551,7 @@ int hcx(char *iname, char *target_mac, char *channel_list)
 	tspecifo.tv_nsec = 0;
 	if (bpf.len == 0) {
 		fprintf(stderr, "BPF is unset! Make sure hcxdumptool is running in a 100%% controlled environment!\n\n");
-		return false;
+		exit(1);
 	}
 	//fprintf(stdout, "Initialize main scan loop...\033[?25l\n");
 	nanosleep(&tspecifo, &tspeciforem);
@@ -4564,6 +4613,10 @@ byebye:
 		fprintf(stdout, "exit on error\n");
 	}
 	fprintf(stdout, "bye-bye\n\n");
-	return EXIT_SUCCESS;
+	
+	static pcap_buffer_t result;
+	result.len = pcap_buffer_size;
+	result.result = pcap_buffer;
+	return &result;
 	/*---------------------------------------------------------------------------*/
 }

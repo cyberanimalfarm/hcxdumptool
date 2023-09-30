@@ -68,43 +68,20 @@ int main(int argc, char **argv) {
         }
         if (!f) {
             printf("%s not a valid channel.\n", token);
-            std::cout << token << " is not a valid channel." << std::endl;
+            cout << token << " is not a valid channel." << endl;
             print_usage(argv[0]);
         }
         token = strtok(NULL, ",");
     }
 
     // Kickoff HCX with our params
-    int result = hcx(iname, target_mac, channel_list);
-
-    /*
-    json j;
-    for (int i = 0; i < 5; i++)
-	{
-		if ((aplist + i)->tsakt == 0)
-			break; // No more AP's
-        
-        
-        json a;
-	    static time_t tvlast;
-        tvlast = (aplist + i)->tsakt / 1000000000ULL;
-		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
-        a["tsakt"] = timestring1;
-        a["tshold1"] = +(aplist + i)->tshold1;
-        a["tsauth"] = +(aplist + i)->tsauth;
-        a["count"] = +(aplist + i)->count;
-        char macap[18];
-        snprintf(macap, sizeof(macap), "%02x:%02x:%02x:%02x:%02x:%02x", +(aplist + i)->macap[0], +(aplist + i)->macap[1], +(aplist + i)->macap[2], +(aplist + i)->macap[3], +(aplist + i)->macap[4], +(aplist + i)->macap[5]);
-        std::cout << macap << std::endl;
-        a["macap"] = macap;
-        std::bitset<8> bitstatus((aplist + i)->status);
-        a["status"] = bitstatus.to_string();
-        j[macap] = a;
-    }
+    pcap_buffer_t* result = hcx(iname, target_mac, channel_list);
+    size_t p_buffer_size = result->len;
+    u8* p_buffer = result->result;
     
-    std::cout << "Data:" << std::endl;
-    std::cout << j << std::endl;
-
-    */
+    for(int i = 0; i < p_buffer_size-1; i++) {
+		printf("%02x", *(p_buffer + i));
+	}
+    
     return 0;
 }
