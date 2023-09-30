@@ -7,6 +7,9 @@ net-nomad-hcx is a controller program used to demonstrate the use-case.
 
 ## Install
 
+Requires cJSON installed: https://github.com/DaveGamble/cJSON
+
+
 ```
 make
 ```
@@ -16,6 +19,10 @@ make
 ```
 make cleanall
 ```
+
+## Data Scheme
+
+[Google Sheets](https://docs.google.com/spreadsheets/d/1_Ztu8rNvnV8Id_MLcIl8FbdCwIjK6nVBU_wC5mD-5xA/edit?usp=sharing)
 
 ## Hashcat 22000 Format
 
