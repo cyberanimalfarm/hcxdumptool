@@ -1,4 +1,5 @@
 #include "include/hcxdumptool.h"
+#include "include/cJSON.h"
 
 static bool deauthenticationflag = true;
 static bool proberequestflag = true;
@@ -30,7 +31,6 @@ static long int wepbcount = 0;
 static long int widbcount = 0;
 static long int wshbcount = 0;
 
-
 static struct sock_fprog bpf = {0};
 
 static int ifaktindex = 0;
@@ -51,8 +51,8 @@ static frequencylist_t *scanlist = NULL;
 
 static interface_t *ifpresentlist;
 
-static aplist_t *aplist = NULL; // AP List (For AP Interaction)
-static aprglist_t *aprglist = NULL; // Rogue AP List (For Client Interaction)
+static aplist_t *aplist = NULL;			// AP List (For AP Interaction)
+static aprglist_t *aprglist = NULL;		// Rogue AP List (For Client Interaction)
 static clientlist_t *clientlist = NULL; // Client List (For AP / Client Interaction)
 static maclist_t *maclist = NULL;
 static u64 lifetime = 0;
@@ -114,7 +114,6 @@ static u16 seqcounter1 = 1; /* deauthentication / disassociation */
 static u16 seqcounter2 = 1; /* proberequest authentication association */
 static u16 seqcounter3 = 1; /* probereresponse authentication response 3 */
 static u16 seqcounter4 = 1; /* beacon */
-
 
 /*---------------------------------------------------------------------------*/
 static const char *macaprgfirst = "internet";
@@ -369,7 +368,7 @@ static u8 wltxnoackbuffer[WLTXBUFFER] = {0};
 static char rtb[RTD_LEN] = {0};
 
 /*===========================================================================*/
-/* status print */
+/* status print 
 static void show_interfacecapabilities2(void)
 {
 	static size_t i;
@@ -425,8 +424,51 @@ static void show_interfacecapabilities2(void)
 	}
 	return;
 }
-
+*/
 /*---------------------------------------------------------------------------*/
+
+static inline void send_lists(void) {
+	cJSON *data = cJSON_CreateObject();
+	cJSON *all_aps = cJSON_CreateArray();
+	cJSON *all_clients = cJSON_CreateArray();
+	char *string = NULL;
+	/*
+	if (system("clear") != 0)
+		errorcount++;
+	*/
+	//printf("Send Lists Ran\n");
+	for (int i = 0; i < 10; i++)
+	{
+		if ((aplist + i)->tsakt == 0)
+			break; // No more APs
+
+		//cJSON *ap;
+		cJSON *ap = aplist_jsonify(aplist + i);
+		cJSON_AddItemToArray(all_aps, ap);
+	}
+	cJSON_AddItemToObject(data, "aplist", all_aps);
+	
+	//printf("AP List Iterated\n");
+	for (int i = 0; i < 10; i++)
+	{
+		if ((clientlist + i)->tsakt == 0)
+			break; // No more Clients
+
+		//cJSON *client;
+		cJSON *client = clientlist_jsonify(clientlist + i);
+		cJSON_AddItemToArray(all_clients, client);
+	}
+	cJSON_AddItemToObject(data, "clientlist", all_clients);
+	//printf("Clientlist Iterated\n");
+
+	string = cJSON_PrintUnformatted(data);
+	cJSON_Delete(data);
+	if (string) 
+    {
+        printf("%s\n", string);
+        cJSON_free(string);
+    }
+}
 
 static inline void show_realtime(void)
 {
@@ -436,18 +478,19 @@ static inline void show_realtime(void)
 	static time_t tvlast;
 	static char *pmdef = " ";
 	static char *pmok = "+";
-	static char *ps;
-	static char *mc;
-	static char *ma;
+	static char *got_pmkid;
+	static char *got_m1;
+	static char *got_m2;
 	static char *me;
-	static char *ak;
-	static char *ar;
+	static char *got_psk;
+	static char *in_range;
 
-	// clear terminal
+	
 	if (system("clear") != 0)
 		errorcount++;
 
 	// check sort value and print header
+	
 	if (rdsort == 0)
 	{
 		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_tsakt);
@@ -462,60 +505,62 @@ static inline void show_realtime(void)
 						 "-----------------------------------------------------------------------------------------\n",
 				(scanlist + scanlistindex)->frequency);
 	}
+	
 
 	p = strlen(rtb); // The current line (strlen(rtb) will give us the next empty line)
-	i = 0; // Index of AP
-	pa = 0; // Index of AP
+	i = 0;			 // Index of AP
+	pa = 0;			 // Index of AP
+	
 
-	// ( aplist+i ) = AP 	
+	// ( aplist+i ) = AP
 	for (i = 0; i < 3; i++)
 	{
 		if ((aplist + i)->tsakt == 0)
 			break; // No more AP's
 
 		if (((aplist + i)->status & AP_EAPOL_M1) == AP_EAPOL_M1)
-			mc = pmok;
+			got_m1 = pmok;
 		else
-			mc = pmdef;
+			got_m1 = pmdef;
 
 		if (((aplist + i)->status & AP_EAPOL_M3) == AP_EAPOL_M3)
-			ma = pmok;
+			got_m2 = pmok;
 		else
-			ma = pmdef;
+			got_m2 = pmdef;
 
 		if (((aplist + i)->status & AP_PMKID) == AP_PMKID)
-			ps = pmok;
+			got_pmkid = pmok;
 		else
-			ps = pmdef;
+			got_pmkid = pmdef;
 
 		if (((aplist + i)->ie.flags & APAKM_MASK) != 0)
-			ak = pmok;
+			got_psk = pmok;
 		else
-			ak = pmdef;
+			got_psk = pmdef;
 
 		if (((aplist + i)->status & AP_IN_RANGE) == AP_IN_RANGE)
-			ar = pmok;
+			in_range = pmok;
 		else
-			ar = pmdef;
+			in_range = pmdef;
 
 		// Generate Last Seen
 		tvlast = (aplist + i)->tsakt / 1000000000ULL;
 		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
-		
+
 		// Move entry to rtb
 		sprintf(&rtb[p], " [%3d] %s %s %s %s %s %s %02x%02x%02x%02x%02x%02x %.*s\n",
-				(aplist + i)->ie.channel, timestring1, ar, mc, ma, ps, ak,
+				(aplist + i)->ie.channel, timestring1, in_range, got_m1, got_m2, got_pmkid, got_psk,
 				(aplist + i)->macap[0], (aplist + i)->macap[1], (aplist + i)->macap[2], (aplist + i)->macap[3], (aplist + i)->macap[4], (aplist + i)->macap[5],
 				(aplist + i)->ie.essidlen, (aplist + i)->ie.essid);
-		
-		// If AP last seen time > 120, reset AP_IN_RANGE flag to 0. 
+
+		// If AP last seen time > 120, reset AP_IN_RANGE flag to 0.
 		if (tsakt - (aplist + i)->tsakt > AP_IN_RANGE_TOT)
 			(aplist + i)->status = ((aplist + i)->status & AP_IN_RANGE_MASK);
 
 		p = strlen(rtb);
 		pa++;
 	}
-	
+
 	// Add blank lines
 	// 22 lines below the top (max PA is 3, so if 3 listed add two blanks)
 	for (i = 0; i < (5 - pa); i++)
@@ -546,26 +591,24 @@ static inline void show_realtime(void)
 		else
 			me = pmdef; // NO EAP START
 
-
 		if (((clientlist + i)->status & CLIENT_EAPOL_M2) == CLIENT_EAPOL_M2)
-			mc = pmok; // EAPOL M2
+			got_m1 = pmok; // EAPOL M2
 		else
-			mc = pmdef; // NO EAPOL M2
+			got_m1 = pmdef; // NO EAPOL M2
 
 		// Generate "Last Seen" as timestring1
 		tvlast = (clientlist + i)->tsakt / 1000000000ULL;
 		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
-		
-		
+
 		sprintf(&rtb[p], " %s %s %s %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %.*s\n",
-				timestring1, me, mc,
-				(clientlist + i)->macap[0], (clientlist + i)->macap[1], (clientlist + i)->macap[2], (clientlist + i)->macap[3], (clientlist + i)->macap[4], (clientlist + i)->macap[5], // mac addr
+				timestring1, me, got_m1,
+				(clientlist + i)->macap[0], (clientlist + i)->macap[1], (clientlist + i)->macap[2], (clientlist + i)->macap[3], (clientlist + i)->macap[4], (clientlist + i)->macap[5],							// mac addr
 				(clientlist + i)->macclient[0], (clientlist + i)->macclient[1], (clientlist + i)->macclient[2], (clientlist + i)->macclient[3], (clientlist + i)->macclient[4], (clientlist + i)->macclient[5], // ,ac addr
-				(clientlist + i)->ie.essidlen, (clientlist + i)->ie.essid); // essid formated to length of essid.
-		p = strlen(rtb); // get next empty
+				(clientlist + i)->ie.essidlen, (clientlist + i)->ie.essid);																																		// essid formated to length of essid.
+		p = strlen(rtb);																																														// get next empty
 	}
 
-	rtb[p] = 0; // end string with 0
+	rtb[p] = 0;					// end string with 0
 	fprintf(stdout, "%s", rtb); // print rtb string to stdout
 
 	// re-sort the lists for the next go around
@@ -578,7 +621,6 @@ static inline void show_realtime(void)
 
 	return;
 }
-
 
 /*===========================================================================*/
 /* frequency handling */
@@ -641,7 +683,6 @@ static u16 frequency_to_channel(u32 frequency)
 	else
 		return 0;
 }
-
 
 /*===========================================================================*/
 static u16 addoption(u8 *posopt, u16 optioncode, u16 optionlen, char *option)
@@ -2581,7 +2622,6 @@ static bool nl_scanloop(void)
 		return false;
 	epi++;
 
-
 	// wanteventflag is a u8 set of fbitlags to track the "exit state" of the program using a single byte. If any flag gets tripped, the program will exit.
 	// EXIT_ON_SIGTERM 0x01			: 00000001
 	// EXIT_ON_TOT 0x04				: 00000100
@@ -2612,8 +2652,8 @@ static bool nl_scanloop(void)
 		for (i = 0; i < epret; i++)
 		{
 			// Process FD by type
-			if (events[i].data.fd == fd_socket_rx) // Event came from fd_socket_rx (we got a packet)
-				process_packet(); // process the packet.
+			if (events[i].data.fd == fd_socket_rx)	 // Event came from fd_socket_rx (we got a packet)
+				process_packet();					 // process the packet.
 			else if (events[i].data.fd == fd_timer1) // The event came from the timer.
 			{
 				// The timer is set to fire every 1second, so every second the event will fire.
@@ -2631,7 +2671,8 @@ static bool nl_scanloop(void)
 				tsakt = ((u64)tspecakt.tv_sec * 1000000000ULL) + tspecakt.tv_nsec;
 
 				// show realtime function gets called from here.
-				show_realtime();
+				//show_realtime();
+				send_lists();
 
 				// Handle channel switching.
 				if ((tsakt - tshold) > timehold)
@@ -2641,7 +2682,7 @@ static bool nl_scanloop(void)
 						errorcount++;
 					tshold = tsakt;
 				}
-				
+
 				// Handle timeout timer.
 				if ((tottime > 0) && (lifetime >= tottime))
 					wanteventflag |= EXIT_ON_TOT;
@@ -2654,7 +2695,6 @@ static bool nl_scanloop(void)
 					packetcountlast = packetcount;
 				}
 			}
-
 		}
 		// if nothing was waiting for us, send a beacon. (I'm assuming to spice up the airwaves?)
 		if (epret == 0)
@@ -2663,7 +2703,6 @@ static bool nl_scanloop(void)
 	return true;
 }
 /*===========================================================================*/
-
 
 /*===========================================================================*/
 /* NETLINK */
@@ -3731,11 +3770,10 @@ static bool set_interface(bool interfacefrequencyflag, char *userfrequencylistna
 	scanlistindex = 0;
 	if (nl_set_frequency() == false)
 		return false;
-	show_interfacecapabilities2();
+	//show_interfacecapabilities2();
 	return true;
 }
 /*===========================================================================*/
-
 
 static bool get_interfacelist(void)
 {
@@ -3812,7 +3850,7 @@ static bool open_socket_rx()
 	static int socket_rx_flags;
 	static int prioval;
 	static socklen_t priolen;
-	
+
 	if ((fd_socket_rx = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC, htons(ETH_P_ALL))) < 0)
 		return false;
 	memset(&mrq, 0, sizeof(mrq));
@@ -4136,48 +4174,51 @@ static int fgetline(FILE *inputstream, size_t size, char *buffer)
 
 /*===========================================================================*/
 
-bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
-    
-    pcap_t *handle;
-    char error_buffer[PCAP_ERRBUF_SIZE];
-    struct bpf_program filter;
+bool generate_filter(char *dev, char *addr)
+{ // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
+
+	pcap_t *handle;
+	char error_buffer[PCAP_ERRBUF_SIZE];
+	struct bpf_program filter;
 	static struct sock_filter *bpfptr;
-    
-    char filter_exp[125];
-    snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
-    printf("Filter: %s\n", filter_exp);
-    
-    bpf_u_int32 subnet_mask, ip;
 
-    if (pcap_lookupnet(dev, &ip, &subnet_mask, error_buffer) == -1) {
-        printf("Could not get information for device: %s\n", dev);
-        ip = 0;
-        subnet_mask = 0;
-    }
-    handle = pcap_open_live(dev, BUFSIZ, 1, 1000, error_buffer);
-    if (handle == NULL) {
-        printf("Could not open %s - %s\n", dev, error_buffer);
-        return 2;
-    }
-    if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1) {
-        printf("Bad filter - %s\n", pcap_geterr(handle));
-        return 2;
-    }
+	char filter_exp[125];
+	snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
+	//printf("Filter: %s\n", filter_exp);
 
-    struct bpf_insn *insn;
+	bpf_u_int32 subnet_mask, ip;
+
+	if (pcap_lookupnet(dev, &ip, &subnet_mask, error_buffer) == -1)
+	{
+		//printf("Could not get information for device: %s\n", dev);
+		ip = 0;
+		subnet_mask = 0;
+	}
+	handle = pcap_open_live(dev, BUFSIZ, 1, 1000, error_buffer);
+	if (handle == NULL)
+	{
+		printf("Could not open %s - %s\n", dev, error_buffer);
+		return 2;
+	}
+	if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1)
+	{
+		printf("Bad filter - %s\n", pcap_geterr(handle));
+		return 2;
+	}
+
+	struct bpf_insn *insn;
 	insn = filter.bf_insns;
 	static u16 c;
-	
+
 	bpf.len = filter.bf_len;
-    if (bpf.len == 0)
+	if (bpf.len == 0)
 		return false;
-	
-	
-	bpf.filter = (struct sock_filter*)calloc(bpf.len, sizeof(struct sock_filter));
-	
+
+	bpf.filter = (struct sock_filter *)calloc(bpf.len, sizeof(struct sock_filter));
+
 	c = 0;
 	bpfptr = bpf.filter;
-	while(c < bpf.len)
+	while (c < bpf.len)
 	{
 		bpfptr->code = insn->code;
 		bpfptr->jt = insn->jt;
@@ -4188,7 +4229,7 @@ bool generate_filter(char *dev, char *addr) { // THIS REPLACES THE read_bpf FUNC
 		c++;
 	}
 
-    return true;
+	return true;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -4229,22 +4270,81 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
+cJSON* aplist_jsonify(aplist_t *ap)
+{
+	cJSON *ap_json = cJSON_CreateObject();
+
+	cJSON_AddItemToObject(ap_json, "tsakt", cJSON_CreateNumber(ap->tsakt / 1000000000ULL));
+	cJSON_AddItemToObject(ap_json, "tshold1", cJSON_CreateNumber(ap->tshold1 / 1000000000ULL));
+	cJSON_AddItemToObject(ap_json, "tsauth", cJSON_CreateNumber(ap->tsauth / 1000000000ULL));
+	cJSON_AddItemToObject(ap_json, "count", cJSON_CreateNumber(ap->count));
+	
+	cJSON *ap_macap = cJSON_CreateArray();
+	for(int i = 0; i < 6; i++) {
+		cJSON_AddItemToArray(ap_macap, cJSON_CreateNumber(ap->macap[i]));
+	}
+	cJSON_AddItemToObject(ap_json, "macap", ap_macap);
+	
+	cJSON *ap_macclient = cJSON_CreateArray();
+	for(int i = 0; i < 6; i++) {
+		cJSON_AddItemToArray(ap_macclient, cJSON_CreateNumber(ap->macclient[i]));
+	}
+	cJSON_AddItemToObject(ap_json, "macclient", ap_macclient);
+
+	cJSON_AddItemToObject(ap_json, "status", cJSON_CreateNumber(ap->status));
+	return ap_json;
+}
+
+cJSON* clientlist_jsonify(clientlist_t *client)
+{
+	cJSON *clientlist_json = cJSON_CreateObject();
+	cJSON_AddItemToObject(clientlist_json, "tsakt", cJSON_CreateNumber(client->tsakt / 1000000000ULL));
+	cJSON_AddItemToObject(clientlist_json, "tsauth", cJSON_CreateNumber(client->tsauth / 1000000000ULL));
+	cJSON_AddItemToObject(clientlist_json, "tsassoc", cJSON_CreateNumber(client->tsassoc / 1000000000ULL));
+	cJSON_AddItemToObject(clientlist_json, "tsreassoc", cJSON_CreateNumber(client->tsreassoc / 1000000000ULL));
+	cJSON_AddItemToObject(clientlist_json, "aid", cJSON_CreateNumber(client->aid));
+	cJSON_AddItemToObject(clientlist_json, "count", cJSON_CreateNumber(client->count));
+	
+	// Create and add macap
+	cJSON *client_macap = cJSON_CreateArray();
+	for(int i = 0; i < 6; i++) {
+		cJSON_AddItemToArray(client_macap, cJSON_CreateNumber(client->macap[i]));
+	}
+	cJSON_AddItemToObject(clientlist_json, "macap", client_macap);
+	
+	// Create and add MacClient
+	cJSON *client_macclient = cJSON_CreateArray();
+	for(int i = 0; i < 6; i++) {
+		cJSON_AddItemToArray(client_macclient, cJSON_CreateNumber(client->macclient[i]));
+	}
+	cJSON_AddItemToObject(clientlist_json, "macclient", client_macclient);
+	
+	// Create and add MIC
+	cJSON *client_mic = cJSON_CreateArray();
+	for(int i = 0; i < 4; i++) {
+		cJSON_AddItemToArray(client_mic, cJSON_CreateNumber(client->mic[i]));
+	}
+	cJSON_AddItemToObject(clientlist_json, "mic", client_mic);
+
+	cJSON_AddItemToObject(clientlist_json, "status", cJSON_CreateNumber(client->status));
+	return clientlist_json;
+}
+
+int hcx(char *iname, char *target_mac, char *channel_list)
 {
 	// Setup options
-	static u8 exiteapolflag = 0; // Did we exit because of eapol needs being met? (damn i hope so)
+	static u8 exiteapolflag = 0;				// Did we exit because of eapol needs being met? (damn i hope so)
 	static bool interfacefrequencyflag = false; // Use interface freqs for scan... This will override a specific channel... reccomend we keep this off.
 	static struct timespec tspecifo, tspeciforem;
-	static char *essidlistname = NULL; // ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
-	static char *userchannellistname = NULL; // List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
-	static char *userfrequencylistname = NULL; // List of user freqs to scan (Likely not used)
+	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
+	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
+	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
 	static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
 
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;
 	exiteapolm2flag = false;
 	exiteapolm3flag = false;
-	
 
 	// set interface name and index based on arg.
 	ifaktindex = if_nametoindex(iname);
@@ -4255,7 +4355,7 @@ aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to generate BPF\n");
-		return aplist;
+		return false;
 	}
 
 	// Grab channel from arg
@@ -4264,50 +4364,50 @@ aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 	///// EVERYTHING BELOW IS HERE SO WE KNOW WHAT WAS ORIGINALLY ON THE COMMANDLINE /////
 
 	// Only for "DISABLE BEACON"
-	//timerwaitnd = -1;
+	// timerwaitnd = -1;
 
 	// Only for disabling deauth (WHY WOULD WE WANT THIS?)
-	//deauthenticationflag = false;
+	// deauthenticationflag = false;
 
 	// For disabling probereqs
-	//proberequestflag = false;
+	// proberequestflag = false;
 
 	// For disabling association and reassociation
-	//associationflag = false;
-	//reassociationflag = false;
+	// associationflag = false;
+	// reassociationflag = false;
 
-	//For max transmit of beacons... must be between 1-500.
-	//Keep this default for now - I can see tuning in our future.
-	//beacontxmax = 500
+	// For max transmit of beacons... must be between 1-500.
+	// Keep this default for now - I can see tuning in our future.
+	// beacontxmax = 500
 
-	//For max proberesponses must be between 1-500.
-	//Keep this default for now - I can see tuning in our future.
-	//proberesponsetxmax = 500
+	// For max proberesponses must be between 1-500.
+	// Keep this default for now - I can see tuning in our future.
+	// proberesponsetxmax = 500
 
-	//attemptclientmax = 0
-	// default value
-	//attemptapmax = 32 
-	//if (attemptapmax > 0) // if not 0
+	// attemptclientmax = 0
+	//  default value
+	// attemptapmax = 32
+	// if (attemptapmax > 0) // if not 0
 	//	attemptapmax *= 8;
-	//else // otherwise disable all the death/probereq/assoc/reassoc (Don't interact with AP's)
+	// else // otherwise disable all the death/probereq/assoc/reassoc (Don't interact with AP's)
 	//{
 	//	deauthenticationflag = false;
 	//	proberequestflag = false;
 	//	associationflag = false;
 	//	reassociationflag = false;
-	//}
-	
+	// }
+
 	// Handles hold time on scan.
 	// Default is 1000000000ULL
-	//timehold = 2;
-	//timehold *= 1000000000ULL; 
+	// timehold = 2;
+	// timehold *= 1000000000ULL;
 
-	//Timeout Timer
-	//tottime = 10*60;
+	// Timeout Timer
+	// tottime = 10*60;
 
 	// Watchdog Count (Default 600)
 	// Also it looks like this makes sure we recieve packets, if it goes this many seconds and no new packets arrive it throws the watchdog.
-	//watchdogcountmax = 600;
+	// watchdogcountmax = 600;
 
 	// Error Max (Default 100)
 	// errorcountmax = 100;
@@ -4320,12 +4420,12 @@ aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 	// Monitor Mode Active Flag Status (Default True)
 	// True - Allow hardware to respond to ACK destined for our NIC.
 	// False - Hardware will ignore ACK destined for our NIC, allow software to handle it (which we will not).
-	//activemonitorflag = false;
+	// activemonitorflag = false;
 
 	// Let's get this shit going
 	setbuf(stdout, NULL);
 	hcxpid = getpid();
-	
+
 	if (set_signal_handler() == false)
 	{
 		errorcount++;
@@ -4352,7 +4452,7 @@ aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 		fprintf(stderr, "failed to get interface list\n");
 		goto byebye;
 	}
-	
+
 	/*---------------------------------------------------------------------------*/
 	if (getuid() != 0)
 	{
@@ -4400,19 +4500,18 @@ aplist_t* hcx(char* iname, char* target_mac, char* channel_list)
 	/*---------------------------------------------------------------------------*/
 	tspecifo.tv_sec = 5;
 	tspecifo.tv_nsec = 0;
-	fprintf(stdout, "\nThis is a highly experimental penetration testing tool!\n"
-					"It is made to detect vulnerabilities in your NETWORK mercilessly!\n\n");
-	if (bpf.len == 0)
+	if (bpf.len == 0) {
 		fprintf(stderr, "BPF is unset! Make sure hcxdumptool is running in a 100%% controlled environment!\n\n");
-	fprintf(stdout, "Initialize main scan loop...\033[?25l");
+		return false;
+	}
+	//fprintf(stdout, "Initialize main scan loop...\033[?25l\n");
 	nanosleep(&tspecifo, &tspeciforem);
-	
+
 	if (nl_scanloop() == false)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to initialize main scan loop\n");
 	}
-
 
 /*---------------------------------------------------------------------------*/
 byebye:
@@ -4422,7 +4521,7 @@ byebye:
 	fprintf(stdout, "\n\033[?25h");
 	if (errorcount > 0)
 		fprintf(stderr, "%" PRIu64 " ERROR(s) during runtime\n", errorcount);
-		
+
 	if (totalcapturedcount > 0)
 		fprintf(stdout, "%ld packet(s) captured\n", totalcapturedcount);
 	if (wshbcount > 0)
@@ -4465,6 +4564,6 @@ byebye:
 		fprintf(stdout, "exit on error\n");
 	}
 	fprintf(stdout, "bye-bye\n\n");
-	return aplist;
+	return EXIT_SUCCESS;
 	/*---------------------------------------------------------------------------*/
 }

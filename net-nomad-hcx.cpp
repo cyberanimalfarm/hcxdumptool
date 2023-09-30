@@ -75,11 +75,10 @@ int main(int argc, char **argv) {
     }
 
     // Kickoff HCX with our params
-    aplist_t* aplist = hcx(iname, target_mac, channel_list);
+    int result = hcx(iname, target_mac, channel_list);
 
+    /*
     json j;
-
-
     for (int i = 0; i < 5; i++)
 	{
 		if ((aplist + i)->tsakt == 0)
@@ -102,10 +101,10 @@ int main(int argc, char **argv) {
         a["status"] = bitstatus.to_string();
         j[macap] = a;
     }
-
     
     std::cout << "Data:" << std::endl;
     std::cout << j << std::endl;
 
+    */
     return 0;
 }

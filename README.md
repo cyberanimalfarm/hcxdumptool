@@ -1,26 +1,150 @@
-net-nomad-hcx
-==============
+# net-nomad-hcx
 
 A gutted HCXDUMPTOOL v6.3.1 that builds into a static object. 
 
 net-nomad-hcx is a controller program used to demonstrate the use-case.
 
 
-Install
---------------
+## Install
 
 ```
 make
 ```
 
-Clean Up
---------------
+## Clean Up
 
 ```
 make cleanall
 ```
 
-Details
+## Hashcat 22000 Format
+
+Example:
+```
+WPA*02*1709ba709b92c3eb7b662036b02e843c*6c5940096fb6*64cc2edaeb52*6c686c64*ca37bb6be93179b0ce86e0f4e393d742fca6854ace6791f29a7d0c0ec1534086*0103007502010a00000000000000000001f09960e32863aa57ba250769b6e12d959a5a1f1cc8939d6bed4401a16092fa72000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001630140100000fac040100000fac040100000fac020000*00
+```
+
+### Explanation:
+```
+PMKID Version (01):
+WPA*01*PMKID*MAC_AP*MAC_CLIENT*ESSID***MESSAGEPAIR
+
+EAPOL Version (02):
+WPA*02*MIC*MAC_AP*MAC_CLIENT*ESSID*NONCE_AP*EAPOL_CLIENT*MESSAGEPAIR
+```
+
+### MESSAGE PAIR Values:
+```
+Byte:    | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+Field:   | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+Legend:
+2,1,0:
+000 = M1+M2, EAPOL from M2 (challenge)
+001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+010 = M2+M3, EAPOL from M2 (authorized)
+011 = M2+M3, EAPOL from M3 (authorized) - unused
+100 = M3+M4, EAPOL from M3 (authorized) - unused
+101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+3: reserved
+4: ap-less attack (set to 1) - no nonce-error-corrections necessary
+5: LE router detected (set to 1) - nonce-error-corrections only for LE necessary
+6: BE router detected (set to 1) - nonce-error-corrections only for BE necessary
+7: not replaycount checked (set to 1) - replaycount not checked, nonce-error-corrections definitely necessary
+```
+
+Useful bash to pull the hashes you want out:
+
+### Filter by PMKID:
+```
+grep 'WPA\*01' hash.hc22000 > pmkid.hc22000
+```
+
+### Filter by EAPOL:
+```
+grep 'WPA\*02' hash.hc22000 > pmkid.hc22000
+```
+
+### Filter by Authorized (The PSK provided will be the correct one for the network):
+```
+grep '2$' hash.hc22000
+```
+
+### Filter by Challenge (The PSK provided COULD be incorrect, the network has not validated it yet):
+```
+grep '0$' hash.hc22000
+```
+
+### Filter by MAC:
+```
+grep '\*112233445566\*'  hash.hc22000 > mac.hc22000
+```
+
+### More:
+```
+#001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "1$"
+
+#010 = M2+M3, EAPOL from M2 (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "2$"
+
+#101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "5$"
+
+# or, if you don't want NC to be in use:
+
+#001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "01$"
+
+#010 = M2+M3, EAPOL from M2 (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "02$"
+
+#101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "05$"
+```
+
+
+## Important Notes
+
+```
+Every converted hash should be a valid hash (depending on the quality of the dump tool handling possible packet loss and the conversion tool regarding EAPOL TIME OUT, detecting NC, evaluation RC). The PSK from this hash is recoverable, but it may not belong to your target network if it is converted from M1M2.
+
+Overview of valid MESSAGE PAIRs belonging to the same AUTHENTICATION SEQUENCE:
+M1M2 = challenge and RC on M1 and M2 is the same
+M2M3 = authenticated (by AP) and RC of M3 = RC M2 +1
+M3M4 = authenticated (by CLIENT) and RC on M3 and M4 are the same
+M1M4 = authenticated (by CLIENT) and RC of M1 = RC M4 +1
+
+Example of invalid MESSAGE PAIRs (NC not possible = PSK not recoverable):
+M1/RC1 M2/RC9
+M2/RC3 M3/RC14
+
+Example of invalid MESSAGE PAIRs that can be converted to valid MESSAGE PAIRS (NC possible = PSK recoverable) by hashcat default NC option (8):
+M1/RC1 M2/RC3
+M2/RC3 M3/RC5
+
+It is not mandatory that they belong to the same AUTHENTICATION sequence, as long as NC is possible.
+
+State of the art attack tools should detect a packet loss and request the packet again. Also they shouldn't run excessive deauthentications/disassociations which cause an AP to reset its EAPOL timers, counters and ANONCE or to start a new AUTHENTICATION sequence.
+State of the art conversion tools should detect if NC is possible or not.
+
+BTW3 (experienced users):
+The most important MESSAGE PAIR is M1M2ROGUE coming from hcxdumptool/hcxlabtool attack against a weak CLIENT. In combination with hcxpcapngtool --all and -E it will give useful information about the wpa_supplicant.conf entries of the CLIENT.
+
+Legend:
+RC = replaycount
+NC = nonce error correction on BE and LE routers
+BE = big endian
+LE = low endian
+M1 = EAPOL message 1 (AP) of 4way handshake
+M2 = EAPOL message 2 (CLIENT) of 4way handshake
+M3 = EAPOL message 3 (AP) of 4way handshake
+M4 = EAPOL message 4 (CLIENT) of 4way handshake (useless if SNONCE is zeroed)
+ROGUE = coming from hcxdumptool/hcxlabtool attack
+PSK = pre-shared key (password of the NETWORK)
+```
+
+## Details
 --------------
 
 Because people still want to use aircrack-ng for some reason, here's a post written by the HCX author:

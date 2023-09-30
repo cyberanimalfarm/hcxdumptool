@@ -38,6 +38,7 @@
 #include "pcapng.h"
 #include "radiotap.h"
 #include <pcap.h>
+#include "cJSON.h"
 
 /*===========================================================================*/
 
@@ -380,6 +381,10 @@ static clientlist_t *clientlist;
 
 // Our custom entrypoint / code
 
+static inline void send_lists();
+
+cJSON* aplist_jsonify(aplist_t *ap);
+cJSON* clientlist_jsonify(clientlist_t *client);
 
 #ifdef __cplusplus
 // this opens an extern "C" block, but only if being included for a C++ compile
@@ -387,7 +392,7 @@ static clientlist_t *clientlist;
 extern "C" {
 #endif
 
-aplist_t* hcx(char* iname, char* target_mac, char* channel_list);
+int hcx(char* iname, char* target_mac, char* channel_list);
 
 
 #ifdef __cplusplus
