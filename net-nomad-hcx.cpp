@@ -1,5 +1,5 @@
 #include "include/hcxdumptool.h" // static library header
-#include "include/hcxpcapngtool.h"
+#include "hcxpcapngtool/include/pcapngtool/hcxpcapngtool.h"
 #include "include/nlohmann/json.hpp"
 #include <string>
 #include <iostream>
@@ -61,7 +61,6 @@ int main(int argc, char **argv) {
         int i;
         bool f = false;
         for(i = 0; i < len; i++) {
-            //printf("i: %d, Channels Entry: %s, Token: %s\n", i, channels[i], token);
             if(strcmp(channels[i], token) == 0) {
                 f = true;
                 break;
@@ -77,13 +76,27 @@ int main(int argc, char **argv) {
 
     // Kickoff HCX with our params
     // TODO: This should actually fork and send the data back over a pipe, probably.
+
     pcap_buffer_t* result = hcx(iname, target_mac, channel_list);
-    size_t p_buffer_size = result->len;
-    u8* p_buffer = result->result;
     
-    for(int i = 0; i < p_buffer_size-1; i++) {
-		printf("%02x", *(p_buffer + i));
+    unsigned long p_buffer_size = result->len;
+    unsigned char* p_buffer = result->result;
+    
+
+    /* This was how I tested my data to confirm we were getting the PCAP across the buffer.
+    
+    printf("Net-Nomad Length: %d\n", p_buffer_size);
+    for(int i = 0; i < p_buffer_size; i++) {
+		printf("%02x ", *(p_buffer + i));
 	}
+    printf("\n\n"); 
     
+    */
+
+    // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG)
+    // PrefixName should probably have the timestamp appended...
+    int pcap_result = pcapngtool(target_mac, p_buffer, p_buffer_size, false);
+
+
     return 0;
 }

@@ -5,4 +5,8 @@ lib/*.a
 .vscode/*
 *.pcapng
 net-nomad-hcx
-*.hc22000
+*.22000
+*.essid
+*.identity
+*.username
+*.deviceinfo

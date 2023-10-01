@@ -773,10 +773,11 @@ static inline void writeepbm1(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
+	//printf("Writing EPBM1\n");
 	if (extend_and_copy_pcap(&epbown, epblen) != epblen)
 		errorcount++;
-	//if (write(fd_pcapng, &epbown, epblen) != epblen)
-	//	errorcount++;
+	/* if (write(fd_pcapng, &epbown, epblen) != epblen)
+		errorcount++; */
 	wepbcount++;
 	return;
 }
@@ -804,10 +805,11 @@ static inline void writeepb(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
+	//printf("Writing EPB\n");
 	if (extend_and_copy_pcap(&epb, epblen) != epblen)
 		errorcount++;
-	//if (write(fd_pcapng, &epb, epblen) != epblen)
-	//	errorcount++;
+	/* if (write(fd_pcapng, &epb, epblen) != epblen)
+		errorcount++; */
 	wepbcount++;
 	return;
 }
@@ -834,7 +836,7 @@ static bool writeshb(void)
 		shblen += addoption(shb + shblen, SHB_HARDWARE, strlen(unameData.machine), unameData.machine);
 		snprintf(sysinfo, SHB_SYSINFO_LEN, "%s %s", unameData.sysname, unameData.release);
 		shblen += addoption(shb + shblen, SHB_OS, strlen(sysinfo), sysinfo);
-		snprintf(sysinfo, SHB_SYSINFO_LEN, "hcxdumptool %s", VERSION_TAG);
+		snprintf(sysinfo, SHB_SYSINFO_LEN, "net-nomad-hcx %s", VERSION_TAG);
 		shblen += addoption(shb + shblen, SHB_USER_APPL, strlen(sysinfo), sysinfo);
 	}
 	shblen += addcustomoption(shb + shblen);
@@ -843,10 +845,15 @@ static bool writeshb(void)
 	shblen += TOTAL_SIZE;
 	shbhdr->total_length = shblen;
 	totallength->total_length = shblen;
-	if (extend_and_copy_pcap(&shb, shblen) != shblen)
-		errorcount++;
-	//if (write(fd_pcapng, &shb, shblen) != shblen)
-	//	return false;
+	//printf("Writing SHB\n");
+	if (extend_and_copy_pcap(&shb, shblen) != shblen) {
+		printf("Failed. Should have copied: %d\n", shblen);
+		return false;
+	}
+	/* if (write(fd_pcapng, &shb, shblen) != shblen) {
+		printf("Write Failed: SHB\n");
+		return false;
+	} */
 	wshbcount++;
 	return true;
 }
@@ -875,10 +882,13 @@ static bool writeidb(void)
 	idblen += TOTAL_SIZE;
 	idbhdr->total_length = idblen;
 	totallength->total_length = idblen;
-	if (extend_and_copy_pcap(&idb, idblen) != idblen)
-		errorcount++;
-	//if (write(fd_pcapng, &idb, idblen) != idblen)
-	//	return false;
+	//printf("Writing IDB\n");
+	if (extend_and_copy_pcap(&idb, idblen) != idblen) {
+		printf("Failed. Should have copied: %d\n", idblen);
+		return false;
+	}
+	/* if (write(fd_pcapng, &idb, idblen) != idblen)
+		return false; */
 	widbcount++;
 	return true;
 }
@@ -913,10 +923,13 @@ static bool writecb(void)
 	cblen += TOTAL_SIZE;
 	cbhdr->total_length = cblen;
 	totallength->total_length = cblen;
-	if (extend_and_copy_pcap(&cb, cblen) != cblen)
-		errorcount++;
-	//if (write(fd_pcapng, &cb, cblen) != cblen)
-	//	return false;
+	//printf("Writing CB\n");
+	if (extend_and_copy_pcap(&cb, cblen) != cblen) {
+		printf("Failed. Should have copied: %d\n", cblen);
+		return false;
+	}
+	/* if (write(fd_pcapng, &cb, cblen) != cblen)
+		return false; */
 	wecbcount++;
 	return true;
 }
@@ -928,11 +941,11 @@ static bool writecb(void)
 	static struct stat statinfo;
 	static char *pcapngfilename = NULL;
 	static char pcapngname[PATH_MAX];
-
+	fprintf(stderr, "Attempting to open dump file.\n");
 	if (pcapngoutname == NULL)
 	{
 		c = 0;
-		snprintf(pcapngname, PATH_MAX, "%s-%s.pcapng", timestring1, ifaktname);a
+		snprintf(pcapngname, PATH_MAX, "%s-%s.pcapng", timestring1, ifaktname);
 		while (stat(pcapngname, &statinfo) == 0)
 		{
 			snprintf(pcapngname, PATH_MAX, "%s-%s-%02d.pcapng", timestring1, ifaktname, c);
@@ -943,21 +956,28 @@ static bool writecb(void)
 	else
 		pcapngfilename = pcapngoutname;
 	umask(0);
-	if ((fd_pcapng = open(pcapngfilename, O_WRONLY | O_TRUNC | O_CREAT, 0777)) < 0)
+	if ((fd_pcapng = open(pcapngfilename, O_WRONLY | O_TRUNC | O_CREAT, 0777)) < 0) {
+		fprintf(stderr, "open_pcapng failed: open\n");
 		return false;
-	if (writeshb() == false)
+	}
+	if (writeshb() == false) {
+		fprintf(stderr, "open_pcapng failed: shb\n");
 		return false;
-	if (writeidb() == false)
+	}
+	if (writeidb() == false) {
+		fprintf(stderr, "open_pcapng failed: idb\n");
 		return false;
-	if (writecb() == false)
+	}
+	if (writecb() == false) {
+		fprintf(stderr, "open_pcapng failed: cb\n");
 		return false;
+	}
 	return true;
-} */
+}  */
 
 static bool setup_pcap_buffer() {
 	pcap_buffer = (u8*)calloc(pcap_buffer_size + 1, sizeof(u8));
-    // Check if the memory has been successfully
-    // allocated by calloc or not
+
     if (pcap_buffer == NULL) {
         return false;
     }
@@ -970,17 +990,36 @@ static bool setup_pcap_buffer() {
 	return true;
 }
 
+static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n) {
+	ssize_t pcap_new_total = pcap_buffer_size + __n;
+	//printf("Attempting to realloc buffer\n");
 
-static bool extend_and_copy_pcap(const void *__buf, size_t __n) {
-	size_t pcap_new_total = pcap_buffer_size + __n;
-	
+	/* printf("Before Length: %d\n", pcap_buffer_size);
+	if(pcap_buffer_size > 0) {
+		for(int i = 0; i < pcap_buffer_size; i++) {
+			printf("%02x ", *(pcap_buffer + i));
+		}
+		printf("\nEND\n");
+	} */
+
 	u8* newbuffer = realloc(pcap_buffer, pcap_new_total * sizeof(u8));
 	if (newbuffer == NULL) {
 		return false;
 	}
+	//printf("Realloc Complete. Attempting to copy data: Old: %d | New: %d\n", pcap_buffer_size, pcap_new_total);
 	pcap_buffer = newbuffer;
 	memcpy(pcap_buffer+pcap_buffer_size, __buf, __n);
 	pcap_buffer_size = pcap_new_total;
+	//printf("MemCopy Complete: Copied: %d\n", __n);
+	
+	/* printf("After Length: %d\n", pcap_buffer_size);
+	if(pcap_buffer_size > 0) {
+		for(int i = 0; i < pcap_buffer_size; i++) {
+			printf("%02x ", *(pcap_buffer + i));
+		}
+		printf("\nEND\n");
+	} */
+
 	return __n;
 }
 
@@ -4383,7 +4422,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
 	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
 	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
-	//static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
+	static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
 
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;
@@ -4517,12 +4556,12 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	}
 	if (essidlistname != NULL)
 		read_essidlist(essidlistname);
-	/* if (open_pcapng(pcapngoutname) == false)
+	/* if (open_pcapng(NULL) == false)
 	{
 		errorcount++;
 		fprintf(stderr, "failed to open dump file\n");
 		goto byebye;
-	} */
+	}  */
 	if (setup_pcap_buffer() == false) {
 		errorcount++;
 		fprintf(stderr, "failed to open pcapng buffer\n");

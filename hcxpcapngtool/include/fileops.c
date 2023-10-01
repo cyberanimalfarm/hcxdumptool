@@ -15,6 +15,7 @@ int res;
 magicnr_t mnr;
 
 res = read(fd, &mnr, 4);
+printf("magic: %02x\n", res);
 if(res != 4) return 0;
 return mnr.magic_number;
 }

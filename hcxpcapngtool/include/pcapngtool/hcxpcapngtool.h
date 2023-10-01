@@ -1,3 +1,4 @@
+
 #define HCX_EAPOL_TIMEOUT			1
 #define HCX_NC					2
 #define HCX_IE					3
@@ -183,7 +184,7 @@ struct maclist_s
  uint8_t		enrollee[WPS_ENROLLEE_LEN];
 };
 typedef struct maclist_s maclist2_t;
-#define	MACLIST_SIZE (sizeof(maclist_t))
+#define	MACLIST_SIZE (sizeof(maclist2_t))
 
 static int sort_maclist_by_mac(const void *a, const void *b)
 {
@@ -518,6 +519,9 @@ if(memcmp(ia->mschapv2username, ib->mschapv2username, ia->mschapv2usernamelen) >
 else if(memcmp(ia->mschapv2username, ib->mschapv2username, ia->mschapv2usernamelen) < 0) return -1;
 return 0;
 }
+
+
+
 /*===========================================================================*/
 #define TACACSPMAX_LEN	0xff
 struct tacacsplist_s
@@ -532,4 +536,15 @@ typedef struct tacacsplist_s tacacsplist_t;
 #define	TACACSPLIST_SIZE (sizeof(tacacsplist_t))
 /*===========================================================================*/
 
+#ifdef __cplusplus
+// this opens an extern "C" block, but only if being included for a C++ compile
+//  if this is being included in a C compile, the extern "C" bits won't be seen
+extern "C" {
+#endif
 
+int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG);
+
+#ifdef __cplusplus
+// close the extern "C" block, but only if we started it in the first place
+}
+#endif
