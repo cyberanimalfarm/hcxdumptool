@@ -1,4 +1,5 @@
 #include "include/hcxdumptool.h" // static library header
+#include "include/hcxpcapngtool.h"
 #include "include/nlohmann/json.hpp"
 #include <string>
 #include <iostream>
@@ -75,6 +76,7 @@ int main(int argc, char **argv) {
     }
 
     // Kickoff HCX with our params
+    // TODO: This should actually fork and send the data back over a pipe, probably.
     pcap_buffer_t* result = hcx(iname, target_mac, channel_list);
     size_t p_buffer_size = result->len;
     u8* p_buffer = result->result;
