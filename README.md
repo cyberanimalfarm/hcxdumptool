@@ -1,6 +1,10 @@
 # net-nomad-hcx
 
-A gutted HCXDUMPTOOL v6.3.1 that builds into a static object. 
+A gutted (and combined) hcxdumptool & hcxpcapngtool v6.3.1 that builds into a static object (for including in your project).
+
+Writes data in realtime to stdout in JSON format.
+
+When capture is complete writes relevant files to disk ready for hashcat.
 
 net-nomad-hcx is a controller program used to demonstrate the use-case.
 
