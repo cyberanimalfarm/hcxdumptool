@@ -6446,19 +6446,23 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 {
 	static int exitcode;
 	
+	
+	static char *pcapngoutname;
 	static char *pmkideapoloutname;
 	static char *usernameoutname;
 	static char *essidoutname;
 	static char *identityoutname;
 	static char *deviceinfooutname;
 
+	
+	static const char *pcapngsuffix = ".pcapng";
 	static const char *pmkideapolsuffix = ".22000";
 	static const char *essidsuffix = ".essid";
 	static const char *identitysuffix = ".identity";
 	static const char *usernamesuffix = ".username";
 	static const char *deviceinfosuffix = ".deviceinfo";
 
-
+	static char pcapngprefix[PATH_MAX];
 	static char pmkideapolprefix[PATH_MAX];
 	static char essidprefix[PATH_MAX];
 	static char identityprefix[PATH_MAX];
@@ -6468,13 +6472,7 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 	struct timeval tv;
 	static struct stat statinfo;
 
-	// Write data to pcapng just cause
-	if (writePcapNG) {
-		FILE* demo;
-		demo = fopen("demo_file.pcapng", "w+");
-		fwrite(pcap_buffer, len, 1, demo);
-		fclose(demo); 
-	}
+	
 
 	// Create fd in memory.
 	int fd = memfd_create("pcap_buffer", 0);
@@ -6529,6 +6527,10 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 	// set filenames prefix+suffix
 	if (prefixoutname != NULL)
 	{
+		strncpy(pcapngprefix, prefixoutname, PREFIX_BUFFER_MAX);
+		strncat(pcapngprefix, pcapngsuffix, PREFIX_BUFFER_MAX);
+		pcapngoutname = pcapngprefix;
+
 		strncpy(pmkideapolprefix, prefixoutname, PREFIX_BUFFER_MAX);
 		strncat(pmkideapolprefix, pmkideapolsuffix, PREFIX_BUFFER_MAX);
 		pmkideapoloutname = pmkideapolprefix;
@@ -6551,6 +6553,14 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 
 	}
 
+
+	// Write data to pcapng.
+	if (writePcapNG) {
+		FILE* pcapfile;
+		pcapfile = fopen(pcapngoutname, "w+");
+		fwrite(pcap_buffer, len, 1, pcapfile);
+		fclose(pcapfile); 
+	}
 
 	// Open outputfiles
 	if (pmkideapoloutname != NULL)
