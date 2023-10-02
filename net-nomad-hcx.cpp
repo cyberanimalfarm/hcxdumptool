@@ -1,15 +1,10 @@
 #include "include/hcxdumptool.h" // static library header
 #include "hcxpcapngtool/include/pcapngtool/hcxpcapngtool.h"
-#include "include/nlohmann/json.hpp"
 #include <string>
 #include <iostream>
 #include <bitset>
 
-
-// for convenience
-using json = nlohmann::json;
 using namespace std;
-
 
 static char timestring1[TIMESTRING_LEN];
 const char* channels[] = {"1a","2a","3a","4a","5a","6a","7a","8a","9a","10a","11a","12a","13a","14a","34b","36b","38b","40b","42b","44b","46b","48b","52b","56b","60b","64b","100b","104b","108b","112b","116b","120b","124b","128b","132b","136b","140b","144b","149b","153b","157b","161b","165b"};
@@ -82,17 +77,7 @@ int main(int argc, char **argv) {
     unsigned long p_buffer_size = result->len;
     unsigned char* p_buffer = result->result;
 
-    /* This was how I tested my data to confirm we were getting the PCAP across the buffer.
-    
-    printf("Net-Nomad Length: %d\n", p_buffer_size);
-    for(int i = 0; i < p_buffer_size; i++) {
-		printf("%02x ", *(p_buffer + i));
-	}
-    printf("\n\n"); 
-    
-    */
-
-    // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG)
+    // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
     // PrefixName should probably have the timestamp appended...
     int pcap_result = pcapngtool(target_mac, p_buffer, p_buffer_size, false, true);
 
