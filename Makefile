@@ -2,7 +2,7 @@
 all: net-nomad-hcx clean
 
 net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
-	g++ -o net-nomad-hcx net-nomad-hcx.cpp -Llib -Iinclude -Ihcxpcapngtool/include/pcapngtool/ -lhcxdumptool -lhcxpcapngtool -lssl -lz -lbz2 -llzma -larchive -lcrypto -lz -lpcap -lcjson
+	g++ -o net-nomad-hcx net-nomad-hcx.cpp -Llib -L/usr/local/lib -Iinclude -Ihcxpcapngtool/include/pcapngtool/ -I/usr/local/include -I/usr/local/include/cjson -lhcxdumptool -lhcxpcapngtool -lssl -lz -lbz2 -llzma -larchive -lcrypto -lz -lpcap -lcjson
 
 net-nomad-hcx.o: net-nomad-hcx.cpp
 	g++ -O -c net-nomad-hcx.cpp

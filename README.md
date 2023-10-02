@@ -10,14 +10,23 @@ Easy to work with as a subprocess.
 
 ## Install
 
-Requires cJSON installed: https://github.com/DaveGamble/cJSON
-Requires libarchive (libarchive-dev)
+To build you will need:
+
+cJSON (https://github.com/DaveGamble/cJSON) Built statically (-DBUILD_SHARED_LIBS=Off flag for cmake)
+
+And:
+
+```
+sudo apt install -y libpcap-dev libcrypto-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev
+```
+
+And maybe some other shit I'm forgetting about?
 
 ```
 make
 ```
 
-## Clean Up
+## Clean Everything (for rebuild)
 
 ```
 make cleanall
