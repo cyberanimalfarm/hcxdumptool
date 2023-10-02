@@ -1,37 +1,5 @@
-
-#define HCX_EAPOL_TIMEOUT			1
-#define HCX_NC					2
-#define HCX_IE					3
-#define HCX_CONVERT_ALL				4
-#define HCX_ESSIDS				5
-#define HCX_EAPMD5_OUT				6
-#define HCX_EAPLEAP_OUT				7
-#define HCX_EAPMD5_JOHN_OUT			8
-#define HCX_TACACSP_OUT				9
-#define HCX_NMEA_OUT				10
-#define HCX_CSV_OUT				11
-#define HCX_RAW_OUT				12
-#define HCX_RAW_IN				13
-#define HCX_LOG_OUT				14
-#define HCX_PMKID_CLIENT_OUT			15
-#define HCX_PMKID_OUT_DEPRECATED		16
-#define HCX_HCCAPX_OUT_DEPRECATED		17
-#define HCX_HCCAP_OUT_DEPRECATED		18
-#define HCX_PMKIDEAPOLJTR_OUT_DEPRECATED	19
-#define HCX_PREFIX_OUT				20
-#define HCX_ADD_TIMESTAMP			21
-#define HCX_PMKIDEAPOL_OUT			'o'
-#define HCX_ESSID_OUT				'E'
-#define HCX_ESSIDPROBEREQUEST_OUT		'R'
-#define HCX_IDENTITY_OUT			'I'
-#define HCX_DEVICEINFO_OUT			'D'
-#define HCX_USERNAME_OUT			'U'
-#define HCX_HELP				'h'
-#define HCX_VERSION				'v'
-
 #define VERSION_TAG "6.3.1"
 #define VERSION_YEAR "2023"
-
 
 #define ERROR_WARNING_MAX_L1		10
 #define ERROR_WARNING_MAX_L2		50
@@ -41,13 +9,12 @@
 
 #define ESSID_LEN_MAX			32
 #define	OPTIONLEN_MAX			1024
-#define NMEA_MAX			256
 
 #define MAX_INTERFACE_ID		255
 
 #define RAW_LEN_MAX			131072
 
-#define MACLIST_MAX			100000
+#define MACLIST2_MAX			100000
 #define HANDSHAKELIST_MAX		100000
 #define PMKIDLIST_MAX			100000
 #define MESSAGELIST_MAX			64
@@ -92,6 +59,7 @@
 #define CHANNEL_MAX			255
 #define GHZ24				1
 #define GHZ5				2
+
 /*===========================================================================*/
 /*===========================================================================*/
 struct tags_s
@@ -542,7 +510,7 @@ typedef struct tacacsplist_s tacacsplist_t;
 extern "C" {
 #endif
 
-int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG);
+int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles);
 
 #ifdef __cplusplus
 // close the extern "C" block, but only if we started it in the first place

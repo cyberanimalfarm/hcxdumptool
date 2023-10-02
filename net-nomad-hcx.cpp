@@ -81,7 +81,6 @@ int main(int argc, char **argv) {
     
     unsigned long p_buffer_size = result->len;
     unsigned char* p_buffer = result->result;
-    
 
     /* This was how I tested my data to confirm we were getting the PCAP across the buffer.
     
@@ -95,7 +94,7 @@ int main(int argc, char **argv) {
 
     // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG)
     // PrefixName should probably have the timestamp appended...
-    int pcap_result = pcapngtool(target_mac, p_buffer, p_buffer_size, false);
+    int pcap_result = pcapngtool(target_mac, p_buffer, p_buffer_size, false, true);
 
 
     return 0;

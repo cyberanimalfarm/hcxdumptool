@@ -371,67 +371,12 @@ static u8 wltxnoackbuffer[WLTXBUFFER] = {0};
 static char rtb[RTD_LEN] = {0};
 
 /*===========================================================================*/
-/* status print 
-static void show_interfacecapabilities2(void)
-{
-	static size_t i;
-	static size_t ifl;
-	static const char *po = "N/A";
-	static const char *mode = "-";
-	static frequencylist_t *iffreql;
 
-	for (i = 0; i < ifpresentlistcounter; i++)
-	{
-		if ((ifpresentlist + i)->index != ifaktindex)
-			continue;
-		fprintf(stdout, "interface information:\n\nphy idx hw-mac       virtual-mac  m ifname           driver (protocol)\n"
-						"---------------------------------------------------------------------------------------------\n");
-		if (((ifpresentlist + i)->type & IF_HAS_NETLINK) == IF_HAS_NETLINK)
-			po = "NETLINK";
-		if (((ifpresentlist + i)->type & IFTYPEMONACT) == IFTYPEMONACT)
-			mode = "*";
-		else if (((ifpresentlist + i)->type & IFTYPEMON) == IFTYPEMON)
-			mode = "+";
-		fprintf(stdout, "%3d %3d %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %s %-*s %s (%s)\n", (ifpresentlist + i)->wiphy, (ifpresentlist + i)->index,
-				(ifpresentlist + i)->hwmac[0], (ifpresentlist + i)->hwmac[1], (ifpresentlist + i)->hwmac[2], (ifpresentlist + i)->hwmac[3], (ifpresentlist + i)->hwmac[4], (ifpresentlist + i)->hwmac[5],
-				(ifpresentlist + i)->vimac[0], (ifpresentlist + i)->vimac[1], (ifpresentlist + i)->vimac[2], (ifpresentlist + i)->vimac[3], (ifpresentlist + i)->vimac[4], (ifpresentlist + i)->vimac[5],
-				mode, IF_NAMESIZE, (ifpresentlist + i)->name, (ifpresentlist + i)->driver, po);
-		iffreql = (ifpresentlist + i)->frequencylist;
-		fprintf(stdout, "\n\navailable frequencies: frequency [channel] tx-power of Regulatory Domain: %s\n", country);
-		for (ifl = 0; ifl < FREQUENCYLIST_MAX; ifl++)
-		{
-			if ((iffreql + ifl)->frequency == 0)
-				break;
-			if (ifl % 4 == 0)
-				fprintf(stdout, "\n");
-			else
-				fprintf(stdout, "\t");
-			if ((iffreql + ifl)->status == 0)
-				fprintf(stdout, "%6d [%3d] %.1f dBm", (iffreql + ifl)->frequency, (iffreql + ifl)->channel, 0.01 * (iffreql + ifl)->pwr);
-			else
-				fprintf(stdout, "%6d [%3d] disabled", (iffreql + ifl)->frequency, (iffreql + ifl)->channel);
-		}
-		fprintf(stdout, "\n");
-		fprintf(stdout, "\n\nscan frequencies: frequency [channel] of Regulatory Domain: %s\n", country);
-		for (ifl = 0; ifl < FREQUENCYLIST_MAX; ifl++)
-		{
-			if ((scanlist + ifl)->frequency == 0)
-				break;
-			if (ifl % 5 == 0)
-				fprintf(stdout, "\n");
-			else
-				fprintf(stdout, "\t");
-			fprintf(stdout, "%6d [%3d]", (scanlist + ifl)->frequency, (scanlist + ifl)->channel);
-		}
-		fprintf(stdout, "\n");
-	}
-	return;
-}
-*/
 /*---------------------------------------------------------------------------*/
 
 static inline void send_lists(void) {
 	cJSON *data = cJSON_CreateObject();
+	cJSON *dumptool = cJSON_CreateObject();
 	cJSON *all_aps = cJSON_CreateArray();
 	cJSON *all_clients = cJSON_CreateArray();
 	char *string = NULL;
@@ -439,7 +384,7 @@ static inline void send_lists(void) {
 	if (system("clear") != 0)
 		errorcount++;
 	*/
-	//printf("Send Lists Ran\n");
+
 	for (int i = 0; i < 10; i++)
 	{
 		if ((aplist + i)->tsakt == 0)
@@ -449,9 +394,8 @@ static inline void send_lists(void) {
 		cJSON *ap = aplist_jsonify(aplist + i);
 		cJSON_AddItemToArray(all_aps, ap);
 	}
-	cJSON_AddItemToObject(data, "aplist", all_aps);
+	cJSON_AddItemToObject(dumptool, "aplist", all_aps);
 	
-	//printf("AP List Iterated\n");
 	for (int i = 0; i < 10; i++)
 	{
 		if ((clientlist + i)->tsakt == 0)
@@ -461,8 +405,9 @@ static inline void send_lists(void) {
 		cJSON *client = clientlist_jsonify(clientlist + i);
 		cJSON_AddItemToArray(all_clients, client);
 	}
-	cJSON_AddItemToObject(data, "clientlist", all_clients);
-	//printf("Clientlist Iterated\n");
+	cJSON_AddItemToObject(dumptool, "clientlist", all_clients);
+
+	cJSON_AddItemToObject(data, "dumptool", dumptool);
 
 	string = cJSON_PrintUnformatted(data);
 	cJSON_Delete(data);
@@ -471,158 +416,6 @@ static inline void send_lists(void) {
         printf("%s\n", string);
         cJSON_free(string);
     }
-}
-
-static inline void show_realtime(void)
-{
-	static size_t i;
-	static size_t p;
-	static size_t pa;
-	static time_t tvlast;
-	static char *pmdef = " ";
-	static char *pmok = "+";
-	static char *got_pmkid;
-	static char *got_m1;
-	static char *got_m2;
-	static char *me;
-	static char *got_psk;
-	static char *in_range;
-
-	
-	if (system("clear") != 0)
-		errorcount++;
-
-	// check sort value and print header
-	
-	if (rdsort == 0)
-	{
-		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_tsakt);
-		sprintf(&rtb[0], "  CHA    LAST   R 1 3 P S    MAC-AP    ESSID (last seen on top)   SCAN-FREQUENCY: %6u\n"
-						 "-----------------------------------------------------------------------------------------\n",
-				(scanlist + scanlistindex)->frequency);
-	}
-	else
-	{
-		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_status);
-		sprintf(&rtb[0], "  CHA    LAST   R 1 3 P S    MAC-AP    ESSID (last EAPOL on top)  SCAN-FREQUENCY: %6u\n"
-						 "-----------------------------------------------------------------------------------------\n",
-				(scanlist + scanlistindex)->frequency);
-	}
-	
-
-	p = strlen(rtb); // The current line (strlen(rtb) will give us the next empty line)
-	i = 0;			 // Index of AP
-	pa = 0;			 // Index of AP
-	
-
-	// ( aplist+i ) = AP
-	for (i = 0; i < 3; i++)
-	{
-		if ((aplist + i)->tsakt == 0)
-			break; // No more AP's
-
-		if (((aplist + i)->status & AP_EAPOL_M1) == AP_EAPOL_M1)
-			got_m1 = pmok;
-		else
-			got_m1 = pmdef;
-
-		if (((aplist + i)->status & AP_EAPOL_M3) == AP_EAPOL_M3)
-			got_m2 = pmok;
-		else
-			got_m2 = pmdef;
-
-		if (((aplist + i)->status & AP_PMKID) == AP_PMKID)
-			got_pmkid = pmok;
-		else
-			got_pmkid = pmdef;
-
-		if (((aplist + i)->ie.flags & APAKM_MASK) != 0)
-			got_psk = pmok;
-		else
-			got_psk = pmdef;
-
-		if (((aplist + i)->status & AP_IN_RANGE) == AP_IN_RANGE)
-			in_range = pmok;
-		else
-			in_range = pmdef;
-
-		// Generate Last Seen
-		tvlast = (aplist + i)->tsakt / 1000000000ULL;
-		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
-
-		// Move entry to rtb
-		sprintf(&rtb[p], " [%3d] %s %s %s %s %s %s %02x%02x%02x%02x%02x%02x %.*s\n",
-				(aplist + i)->ie.channel, timestring1, in_range, got_m1, got_m2, got_pmkid, got_psk,
-				(aplist + i)->macap[0], (aplist + i)->macap[1], (aplist + i)->macap[2], (aplist + i)->macap[3], (aplist + i)->macap[4], (aplist + i)->macap[5],
-				(aplist + i)->ie.essidlen, (aplist + i)->ie.essid);
-
-		// If AP last seen time > 120, reset AP_IN_RANGE flag to 0.
-		if (tsakt - (aplist + i)->tsakt > AP_IN_RANGE_TOT)
-			(aplist + i)->status = ((aplist + i)->status & AP_IN_RANGE_MASK);
-
-		p = strlen(rtb);
-		pa++;
-	}
-
-	// Add blank lines
-	// 22 lines below the top (max PA is 3, so if 3 listed add two blanks)
-	for (i = 0; i < (5 - pa); i++)
-		rtb[p++] = '\n';
-
-	// CLIENTS
-
-	if (rdsort == 0)
-	{
-		qsort(clientlist, CLIENTLIST_MAX, CLIENTLIST_SIZE, sort_clientlist_by_tsakt);
-		sprintf(&rtb[p], "   LAST   E 2 MAC-AP-ROGUE   MAC-CLIENT   ESSID (last seen on top)\n"
-						 "-----------------------------------------------------------------------------------------\n");
-	}
-	else
-	{
-		qsort(clientlist, CLIENTLIST_MAX, CLIENTLIST_SIZE, sort_clientlist_by_status);
-		sprintf(&rtb[p], "   LAST   E 2 MAC-AP-ROGUE   MAC-CLIENT   ESSID (last M2ROGUE on top)\n"
-						 "-----------------------------------------------------------------------------------------\n");
-	}
-	p = strlen(rtb); // Get next empty
-
-	for (i = 0; i < 20; i++) // List 20 clients
-	{
-		if ((clientlist + i)->tsakt == 0)
-			break; // no more clients
-		if (((clientlist + i)->status & CLIENT_EAP_START) == CLIENT_EAP_START)
-			me = pmok; // EAP START
-		else
-			me = pmdef; // NO EAP START
-
-		if (((clientlist + i)->status & CLIENT_EAPOL_M2) == CLIENT_EAPOL_M2)
-			got_m1 = pmok; // EAPOL M2
-		else
-			got_m1 = pmdef; // NO EAPOL M2
-
-		// Generate "Last Seen" as timestring1
-		tvlast = (clientlist + i)->tsakt / 1000000000ULL;
-		strftime(timestring1, TIMESTRING_LEN, "%H:%M:%S", localtime(&tvlast));
-
-		sprintf(&rtb[p], " %s %s %s %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x %.*s\n",
-				timestring1, me, got_m1,
-				(clientlist + i)->macap[0], (clientlist + i)->macap[1], (clientlist + i)->macap[2], (clientlist + i)->macap[3], (clientlist + i)->macap[4], (clientlist + i)->macap[5],							// mac addr
-				(clientlist + i)->macclient[0], (clientlist + i)->macclient[1], (clientlist + i)->macclient[2], (clientlist + i)->macclient[3], (clientlist + i)->macclient[4], (clientlist + i)->macclient[5], // ,ac addr
-				(clientlist + i)->ie.essidlen, (clientlist + i)->ie.essid);																																		// essid formated to length of essid.
-		p = strlen(rtb);																																														// get next empty
-	}
-
-	rtb[p] = 0;					// end string with 0
-	fprintf(stdout, "%s", rtb); // print rtb string to stdout
-
-	// re-sort the lists for the next go around
-
-	if (rdsort > 0)
-	{
-		qsort(aplist, APLIST_MAX, APLIST_SIZE, sort_aplist_by_tsakt);
-		qsort(clientlist, CLIENTLIST_MAX, CLIENTLIST_SIZE, sort_clientlist_by_tsakt);
-	}
-
-	return;
 }
 
 /*===========================================================================*/
@@ -4589,7 +4382,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	tspecifo.tv_sec = 5;
 	tspecifo.tv_nsec = 0;
 	if (bpf.len == 0) {
-		fprintf(stderr, "BPF is unset! Make sure hcxdumptool is running in a 100%% controlled environment!\n\n");
+		fprintf(stderr, "BPF Error.\n");
 		exit(1);
 	}
 	//fprintf(stdout, "Initialize main scan loop...\033[?25l\n");
@@ -4606,52 +4399,6 @@ byebye:
 	close_fds();
 	close_sockets();
 	close_lists();
-	fprintf(stdout, "\n\033[?25h");
-	if (errorcount > 0)
-		fprintf(stderr, "%" PRIu64 " ERROR(s) during runtime\n", errorcount);
-
-	if (totalcapturedcount > 0)
-		fprintf(stdout, "%ld packet(s) captured\n", totalcapturedcount);
-	if (wshbcount > 0)
-		fprintf(stdout, "%ld SHB written to pcapng dumpfile\n", wshbcount);
-	if (widbcount > 0)
-		fprintf(stdout, "%ld IDB written to pcapng dumpfile\n", widbcount);
-	if (wecbcount > 0)
-		fprintf(stdout, "%ld ECB written to pcapng dumpfile\n", wecbcount);
-	if (wepbcount > 0)
-		fprintf(stdout, "%ld EPB written to pcapng dumpfile\n", wepbcount);
-
-	fprintf(stdout, "\n");
-
-	// How did we exit?
-	/*---------------------------------------------------------------------------*/
-	if (exiteapolflag != 0)
-	{
-		if ((wanteventflag & EXIT_ON_EAPOL_PMKID) == EXIT_ON_EAPOL_PMKID)
-			fprintf(stdout, "exit on PMKID\n");
-		if ((wanteventflag & EXIT_ON_EAPOL_M2) == EXIT_ON_EAPOL_M2)
-			fprintf(stdout, "exit on EAPOL M1M2\n");
-		if ((wanteventflag & EXIT_ON_EAPOL_M3) == EXIT_ON_EAPOL_M3)
-			fprintf(stdout, "exit on EAPOL M1M2M3\n");
-	}
-
-	if ((wanteventflag & EXIT_ON_SIGTERM) == EXIT_ON_SIGTERM)
-	{
-		fprintf(stdout, "exit on sigterm\n");
-	}
-	else if ((wanteventflag & EXIT_ON_TOT) == EXIT_ON_TOT)
-	{
-		fprintf(stdout, "exit on TOT\n");
-	}
-	else if ((wanteventflag & EXIT_ON_WATCHDOG) == EXIT_ON_WATCHDOG)
-	{
-		fprintf(stdout, "exit on watchdog\n");
-	}
-	else if ((wanteventflag & EXIT_ON_ERROR) == EXIT_ON_ERROR)
-	{
-		fprintf(stdout, "exit on error\n");
-	}
-	fprintf(stdout, "bye-bye\n\n");
 	
 	static pcap_buffer_t result;
 	result.len = pcap_buffer_size;

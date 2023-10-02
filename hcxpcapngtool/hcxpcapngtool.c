@@ -23,6 +23,9 @@
 #include <openssl/params.h>
 #include <openssl/types.h>
 
+#include <archive.h>
+#include <archive_entry.h>
+
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define BIG_ENDIAN_HOST
 #endif
@@ -34,9 +37,8 @@
 #include "include/fileops.c"
 #include "include/hashops.c"
 #include "include/pcap.c"
-#ifdef WANTZLIB
 #include "include/gzops.c"
-#endif
+#include "include/cJSON.h"
 
 /*===========================================================================*/
 struct hccap_s
@@ -103,23 +105,10 @@ static char *jtrbasenamedeprecated;
 
 static FILE *fh_pmkideapol;
 static FILE *fh_pmkideapolclient;
-static FILE *fh_eapmd5;
-static FILE *fh_eapmd5john;
-static FILE *fh_eapleap;
-static FILE *fh_tacacsp;
 static FILE *fh_essid;
-static FILE *fh_essidproberequest;
 static FILE *fh_deviceinfo;
 static FILE *fh_identity;
 static FILE *fh_username;
-static FILE *fh_nmea;
-static FILE *fh_csv;
-static FILE *fh_raw_out;
-static FILE *fh_log;
-static FILE *fh_pmkideapoljtrdeprecated;
-static FILE *fh_pmkiddeprecated;
-static FILE *fh_hccapxdeprecated;
-static FILE *fh_hccapdeprecated;
 
 static int maclistmax;
 static int handshakelistmax;
@@ -328,6 +317,18 @@ static bool ancientdumpfileformat;
 static bool radiotappresent;
 static bool ieee80211flag;
 
+static bool pmkidfile = false;
+static bool pmkidclientfile = false;
+static bool essidfile = false;
+static bool identityfile = false;
+static bool usernamefile = false;
+static bool deviceinfofile = false;
+
+
+static bool data_compressed = false;
+static bool pcapng_written = false;
+
+
 static const uint8_t fakenonce1[] =
 	{
 		0x07, 0xbc, 0x92, 0xea, 0x2f, 0x5a, 0x1e, 0xe2, 0x54, 0xf6, 0xb1, 0xb7, 0xe0, 0xaa, 0xd3, 0x53,
@@ -411,7 +412,7 @@ static bool initlists(void)
 {
 	static const char nastring[] = {"N/A"};
 
-	maclistmax = MACLIST_MAX;
+	maclistmax = MACLIST2_MAX;
 	if ((aplist = (maclist2_t *)calloc((maclistmax + 1), MACLIST_SIZE)) == NULL)
 		return false;
 	aplistptr = aplist;
@@ -655,10 +656,6 @@ static void printcontentinfo(void)
 	static uint8_t i;
 	static uint16_t p;
 
-	if (nmeacount > 0)
-		fprintf(stdout, "NMEA PROTOCOL............................: %ld\n", nmeacount);
-	if (nmeaerrorcount > 0)
-		fprintf(stdout, "NMEA PROTOCOL checksum errors............: %ld\n", nmeaerrorcount);
 	if (endianness == 0)
 		fprintf(stdout, "endianness (capture system)..............: little endian\n");
 	else
@@ -1042,7 +1039,7 @@ static void printcontentinfo(void)
 						"It prevent calculation of EAPOL TIMEOUT values.\n"
 						"That is a bug of the capturing/cleaning.\n");
 	}
-	
+
 	if (eapolmsgtimestamperrorcount > 0)
 	{
 		fprintf(stdout, "\nWarning: wrong timestamps!\n"
@@ -1050,14 +1047,14 @@ static void printcontentinfo(void)
 						"It prevent calculation of EAPOL TIMEOUT values.\n"
 						"That is a bug of the capturing/cleaning tool.\n");
 	}
-	
+
 	if (sequenceerrorcount > 0)
 	{
 		fprintf(stdout, "\nWarning: out of sequence timestamps!\n"
 						"This dump file contains frames with out of sequence timestamps.\n"
 						"That is a bug of the capturing/cleaning tool.\n");
 	}
-	
+
 	if (ancientdumpfileformat == true)
 	{
 		fprintf(stdout, "\nInformation: limited dump file format detected!\n"
@@ -1068,13 +1065,13 @@ static void printcontentinfo(void)
 						"https://www.wireshark.org/docs/wsug_html_chunked/AppFiles.html#ChAppFilesCaptureFilesSection\n"
 						"https://github.com/pcapng/pcapng\n");
 	}
-	
+
 	if (ieee80211flag == false)
 	{
 		fprintf(stdout, "\n");
 		return;
 	}
-	
+
 	if (radiotappresent == false)
 	{
 		fprintf(stdout, "\nInformation: radiotap header is missing!\n"
@@ -1084,14 +1081,14 @@ static void printcontentinfo(void)
 						"applications.\n"
 						"https://www.radiotap.org/\n");
 	}
-	
+
 	if (magicblockcount > 1)
 	{
 		fprintf(stdout, "\nWarning: this dump file contains more than one custom block!\n"
 						"This always happens if dump files are merged!\n"
 						"Do not merge dump files, because this destroys assigned hash values!\n");
 	}
-	
+
 	if (((deauthenticationcount + disassociationcount) >= 100) && ((deauthenticationcount + disassociationcount) <= 10000))
 	{
 		fprintf(stdout, "\nWarning: too many deauthentication/disassociation frames detected!\n"
@@ -1163,7 +1160,7 @@ static void printcontentinfo(void)
 	{
 		fprintf(stdout, "\nInformation: no hashes written to hash files\n");
 	}
-	
+
 	fprintf(stdout, "\n");
 	return;
 }
@@ -1178,9 +1175,9 @@ static void printlinklayerinfo(void)
 
 	radiotappresent = false;
 	tvmin = timestampmin / 1000000000;
-	strftime(timestringmin, 32, "%d.%m.%Y %H:%M:%S", localtime(&tvmin));
+	strftime(timestringmin, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmin));
 	tvmax = timestampmax / 1000000000;
-	strftime(timestringmax, 32, "%d.%m.%Y %H:%M:%S", localtime(&tvmax));
+	strftime(timestringmax, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmax));
 	fprintf(stdout, "timestamp minimum (GMT)..................: %s\n", timestringmin);
 	fprintf(stdout, "timestamp maximum (GMT)..................: %s\n", timestringmax);
 	fprintf(stdout, "used capture interfaces..................: %d\n", iface);
@@ -1234,10 +1231,6 @@ static void outputwordlists(void)
 		}
 		if (fh_essid != NULL)
 			fwriteessidstr(zeigermac->essidlen, zeigermac->essid, fh_essid);
-		if ((fh_essidproberequest != NULL) && (zeigermac->status == ST_PROBE_REQ))
-			fwriteessidstr(zeigermac->essidlen, zeigermac->essid, fh_essidproberequest);
-		if ((fh_essidproberequest != NULL) && (zeigermac->status == ST_ACT_MR_REQ))
-			fwriteessidstr(zeigermac->essidlen, zeigermac->essid, fh_essidproberequest);
 		essidcount++;
 		zeigermacold = zeigermac;
 	}
@@ -1277,266 +1270,7 @@ static void outputdeviceinfolist(void)
 	return;
 }
 /*===========================================================================*/
-static void writecsv(uint64_t timestamp, uint8_t *mac, tags_t *tags)
-{
-	static int c;
-	static int p;
-	static time_t tvo;
-	static float latitude;
-	static char ew;
-	static float longitude;
-	static float latm, lonm;
-	static int fix;
-	static int satcount;
-	static float hdop;
-	static float altitude;
-	static char altunit;
-	static char ns;
-	static const char gpgga[] = "$GPGGA";
-	static const char gprmc[] = "$GPRMC";
 
-	static char timestring[24];
-
-	if (tags->essidlen == 0)
-		return;
-	if (tags->essid[0] == 0)
-		return;
-	tvo = timestamp / 1000000000;
-	strftime(timestring, 24, "%Y-%m-%d\t%H:%M:%S", gmtime(&tvo));
-	if ((tags->essidlen != 0) && (tags->essid[0] != 0))
-		fprintf(fh_csv, "%s\t%02x:%02x:%02x:%02x:%02x:%02x\t%.*s\t", timestring, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], tags->essidlen, tags->essid);
-	else
-		fprintf(fh_csv, "%s\t%02x:%02x:%02x:%02x:%02x:%02x\t<HIDDEN ESSID>\t", timestring, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-	if (tags->kdversion == 0)
-		fprintf(fh_csv, "OPEN");
-	if ((tags->kdversion & KV_WPAIE) == KV_WPAIE)
-		fprintf(fh_csv, "[WPA1]");
-	if ((tags->kdversion & KV_RSNIE) == KV_RSNIE)
-		fprintf(fh_csv, "[WPA2]");
-	fprintf(fh_csv, "\t");
-	if ((tags->cipher & TCS_TKIP) == TCS_TKIP)
-		fprintf(fh_csv, "[TKIP]");
-	if ((tags->cipher & TCS_CCMP) == TCS_CCMP)
-		fprintf(fh_csv, "[CCMP]");
-	if ((tags->cipher & TCS_WEP40) == TCS_WEP40)
-		fprintf(fh_csv, "[WEP40]");
-	if ((tags->cipher & TCS_WEP104) == TCS_WEP104)
-		fprintf(fh_csv, "[WEP104]");
-	if ((tags->cipher & TCS_WRAP) == TCS_WRAP)
-		fprintf(fh_csv, "[WRAP]");
-	if ((tags->cipher & TCS_BIP) == TCS_BIP)
-		fprintf(fh_csv, "[BIP]");
-	if ((tags->cipher & TCS_NOT_ALLOWED) == TCS_NOT_ALLOWED)
-		fprintf(fh_csv, "[NOT_ALLOWED]");
-	fprintf(fh_csv, "\t");
-	if ((tags->akm & TAK_PSK) == TAK_PSK)
-		fprintf(fh_csv, "[PSK]");
-	if ((tags->akm & TAK_PSKSHA256) == TAK_PSKSHA256)
-		fprintf(fh_csv, "[PSK_SHA256]");
-	if ((tags->akm & TAK_PMKSA) == TAK_PMKSA)
-		fprintf(fh_csv, "[PMKSA]");
-	if ((tags->akm & TAK_PMKSA256) == TAK_PMKSA256)
-		fprintf(fh_csv, "[PMKSA_SHA256]");
-	if ((tags->akm & TAK_FT) == TAK_FT)
-		fprintf(fh_csv, "[FT]");
-	if ((tags->akm & TAK_FT_PSK) == TAK_FT_PSK)
-		fprintf(fh_csv, "[FT_PSK]");
-	if ((tags->akm & TAK_FT_SAE) == TAK_FT_SAE)
-		fprintf(fh_csv, "[FT_SAE]");
-	if ((tags->akm & TAK_TDLS) == TAK_TDLS)
-		fprintf(fh_csv, "[TDLS]");
-	if ((tags->akm & TAK_SAE_SHA256) == TAK_SAE_SHA256)
-		fprintf(fh_csv, "[SAE_SHA256]");
-	if ((tags->akm & TAK_SAE_SHA256B) == TAK_SAE_SHA256B)
-		fprintf(fh_csv, "[SAE_SHA256B]");
-	if ((tags->akm & TAK_SAE_SHA384B) == TAK_SAE_SHA384B)
-		fprintf(fh_csv, "[SAE_SHA384B]");
-	if ((tags->akm & TAK_AP_PKA) == TAK_AP_PKA)
-		fprintf(fh_csv, "[AP_PKA]");
-	if ((tags->akm & TAK_OWE) == TAK_OWE)
-		fprintf(fh_csv, "[OWE]");
-	fprintf(fh_csv, "\t");
-	if ((tags->country[0] >= 'A') && (tags->country[0] <= 'Z') && (tags->country[1] >= 'A') && (tags->country[1] <= 'Z'))
-		fprintf(fh_csv, "%c%c\t", tags->country[0], tags->country[1]);
-	else
-		fprintf(fh_csv, "00\t");
-	if (tags->channel != 0)
-		fprintf(fh_csv, "%d\t", tags->channel);
-	else
-		fprintf(fh_csv, "%d\t", interfacechannel);
-	fprintf(fh_csv, "%d\t", rssi);
-	p = 7;
-	c = 0;
-	latitude = 0;
-	longitude = 0;
-	ew = 'E';
-	ns = 'S';
-	latm = 0;
-	lonm = 0;
-	fix = 0;
-	satcount = 0;
-	hdop = 0;
-	altitude = 0;
-	altunit = 'M';
-	if (nmealen < 48)
-	{
-		fprintf(fh_csv, "%f\t%c\t%f\t%c\t%f\t%f\t%d\t%d\t%f\t%f\t%c\n", latitude, ew, longitude, ns, latm, lonm, fix, satcount, hdop, altitude, altunit);
-		return;
-	}
-	if (memcmp(&gpgga, nmeasentence, 6) == 0)
-	{
-		while ((nmeasentence[p] != 0) && (c < 1))
-		{
-			if (nmeasentence[p] == ',')
-				c++;
-			p++;
-		}
-		sscanf(&nmeasentence[p], "%f,%c,%f,%c,%d,%d,%f,%f,%c", &latitude, &ew, &longitude, &ns, &fix, &satcount, &hdop, &altitude, &altunit);
-		if (latitude != 0)
-			latm = ((int)latitude) / 100 + (((int)latitude) % 100 + latitude - (int)latitude) / 60;
-		if (longitude != 0)
-			lonm = ((int)longitude) / 100 + (((int)longitude) % 100 + longitude - (int)longitude) / 60;
-		if (ew == 'W')
-			latm = -latm;
-		if (ns == 'S')
-			lonm = -lonm;
-		fprintf(fh_csv, "%f\t%c\t%f\t%c\t%f\t%f\t%d\t%d\t%f\t%f\t%c\n", latitude, ew, longitude, ns, latm, lonm, fix, satcount, hdop, altitude, altunit);
-		return;
-	}
-	if (memcmp(&gprmc, nmeasentence, 6) == 0)
-	{
-		while ((nmeasentence[p] != 0) && (c < 2))
-		{
-			if (nmeasentence[p] == ',')
-				c++;
-			p++;
-		}
-		sscanf(&nmeasentence[p], "%f,%c,%f,%c", &latitude, &ew, &longitude, &ns);
-		if (latitude != 0)
-			latm = ((int)latitude) / 100 + (((int)latitude) % 100 + latitude - (int)latitude) / 60;
-		if (longitude != 0)
-			lonm = ((int)longitude) / 100 + (((int)longitude) % 100 + longitude - (int)longitude) / 60;
-		if (ew == 'W')
-			latm = -latm;
-		if (ns == 'S')
-			lonm = -lonm;
-		fprintf(fh_csv, "%f\t%c\t%f\t%c\t%f\t%f\t%d\t%d\t%f\t%f\t%c\n", latitude, ew, longitude, ns, latm, lonm, fix, satcount, hdop, altitude, altunit);
-		return;
-	}
-	return;
-}
-/*===========================================================================*/
-static void writegpwpl(uint8_t *mac)
-{
-	static int c;
-	static int cs;
-	static int cc, ca, ce;
-	static int gpwpllen;
-	static char *gpwplptr;
-	static const char gpgga[] = "$GPGGA";
-	static const char gprmc[] = "$GPRMC";
-	static char gpwpl[NMEA_MAX];
-
-	if (nmealen < 48)
-		return;
-	gpwpl[0] = 0;
-	c = 0;
-	cc = 0;
-	ca = 0;
-	ce = 0;
-	if (memcmp(&gprmc, nmeasentence, 6) == 0)
-	{
-		while (nmeasentence[c] != 0)
-		{
-			if (nmeasentence[c] == ',')
-			{
-				cc++;
-				if (cc == 3)
-					ca = c + 1;
-				if (cc == 7)
-				{
-					ce = c;
-					break;
-				}
-			}
-			c++;
-		}
-		if (ce > ca)
-			snprintf(gpwpl, NMEA_MAX - 1, "$GPWPL,%.*s,%02x%02x%02x%02x%02x%02x*", ce - ca, &nmeasentence[ca], mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-	}
-	else if (memcmp(&gpgga, nmeasentence, 6) == 0)
-	{
-		while (nmeasentence[c] != 0)
-		{
-			if (nmeasentence[c] == ',')
-			{
-				cc++;
-				if (cc == 2)
-					ca = c + 1;
-				if (cc == 6)
-				{
-					ce = c;
-					break;
-				}
-			}
-			c++;
-		}
-		if (ce > ca)
-			snprintf(gpwpl, NMEA_MAX - 1, "$GPWPL,%.*s,%02x%02x%02x%02x%02x%02x*", ce - ca, &nmeasentence[ca], mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-	}
-	else
-		return;
-	if (gpwpl[0] == 0)
-		return;
-	gpwplptr = gpwpl + 1;
-	c = 0;
-	cs = 0;
-	while (gpwplptr[c] != '*')
-	{
-		cs ^= gpwplptr[c];
-		gpwplptr++;
-	}
-	snprintf(gpwplptr + 1, NMEA_MAX - 44, "%02x", cs);
-	gpwpllen = strlen(gpwpl);
-	if (memcmp(&gpwplold, &gpwpl, gpwpllen) != 0)
-		fprintf(fh_nmea, "%s\n", gpwpl);
-	memcpy(&gpwplold, &gpwpl, gpwpllen);
-	return;
-}
-/*===========================================================================*/
-static void outputtacacsplist(void)
-{
-	static uint32_t c;
-	static tacacsplist_t *zeiger, *zeigerold;
-
-	if (tacacsplist == tacacsplistptr)
-		return;
-	zeiger = tacacsplist;
-	zeigerold = tacacsplist;
-	if (fh_tacacsp != NULL)
-	{
-		fprintf(fh_tacacsp, "$tacacs-plus$0$%08x$", zeiger->sessionid);
-		for (c = 0; c < zeiger->len; c++)
-			fprintf(fh_tacacsp, "%02x", zeiger->data[c]);
-		fprintf(fh_tacacsp, "$%02x%02x\n", zeiger->version, zeiger->sequencenr);
-		tacacspwrittencount++;
-	}
-	for (zeiger = tacacsplist + 1; zeiger < tacacsplistptr; zeiger++)
-	{
-		if ((zeigerold->sessionid == zeiger->sessionid) && (zeigerold->sequencenr == zeiger->sequencenr) && (zeigerold->len == zeiger->len) && (memcmp(zeigerold->data, zeiger->data, zeiger->len) == 0))
-			continue;
-		if (fh_tacacsp != NULL)
-		{
-			fprintf(fh_tacacsp, "$tacacs-plus$0$%08x$", zeiger->sessionid);
-			for (c = 0; c < zeiger->len; c++)
-				fprintf(fh_tacacsp, "%02x", zeiger->data[c]);
-			fprintf(fh_tacacsp, "$%02x%02x\n", zeiger->version, zeiger->sequencenr);
-			tacacspwrittencount++;
-		}
-		zeigerold = zeiger;
-	}
-	return;
-}
 /*===========================================================================*/
 static void processtacacsppacket(uint32_t restlen, uint8_t *tacacspptr)
 {
@@ -1827,37 +1561,7 @@ static inline size_t mschapv2_username_clean(uint8_t *username, size_t usernamel
 	return (username + usernamelen - (uint8_t *)ptr - 1);
 }
 /*===========================================================================*/
-static void outputeapmschapv2hashlist(void)
-{
-	static eapmschapv2hashlist_t *zeiger, *zeigerold;
-	static uint8_t challenge[MSCHAPV2_CHALLENGE_LEN_MAX];
-	static uint8_t usernameclean[MSCHAPV2USERNAME_LEN_MAX];
-	static size_t usernamecleanlen;
-	
-	zeiger = eapmschapv2hashlist;
-	zeigerold = NULL;
-	qsort(eapmschapv2hashlist, eapmschapv2hashlistptr - eapmschapv2hashlist, EAPMSCHAPV2HASHLIST_SIZE, sort_eapmschapv2hashlist_by_id);
-	for (zeiger = eapmschapv2hashlist; zeiger < eapmschapv2hashlistptr; zeiger++)
-	{
-		if ((zeigerold != NULL) && (zeigerold->id == zeiger->id) && (zeigerold->mschapv2usernamelen == zeiger->mschapv2usernamelen) && (memcmp(zeigerold->mschapv2username, zeiger->mschapv2username, zeiger->mschapv2usernamelen) == 0) && (memcmp(zeigerold->mschapv2request, zeiger->mschapv2request, MSCHAPV2REQ_LEN_MAX) == 0) && (memcmp(zeigerold->mschapv2response, zeiger->mschapv2response, MSCHAPV2RESP_LEN_MAX) == 0))
-			continue;
-		if (fh_eapleap != NULL)
-		{
-			usernamecleanlen = mschapv2_username_clean(zeiger->mschapv2username, zeiger->mschapv2usernamelen, usernameclean);
-			if (mschapv2_challenge_hash(zeiger->mschapv2response, zeiger->mschapv2request, usernameclean, usernamecleanlen, challenge) == false)
-				continue;
-			fprintf(fh_eapleap, "%.*s::::%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x\n",
-					(int)zeiger->mschapv2usernamelen, zeiger->mschapv2username,
-					zeiger->mschapv2response[24], zeiger->mschapv2response[25], zeiger->mschapv2response[26], zeiger->mschapv2response[27], zeiger->mschapv2response[28], zeiger->mschapv2response[29], zeiger->mschapv2response[30], zeiger->mschapv2response[31],
-					zeiger->mschapv2response[32], zeiger->mschapv2response[33], zeiger->mschapv2response[34], zeiger->mschapv2response[35], zeiger->mschapv2response[36], zeiger->mschapv2response[37], zeiger->mschapv2response[38], zeiger->mschapv2response[39],
-					zeiger->mschapv2response[40], zeiger->mschapv2response[41], zeiger->mschapv2response[42], zeiger->mschapv2response[43], zeiger->mschapv2response[44], zeiger->mschapv2response[45], zeiger->mschapv2response[46], zeiger->mschapv2response[47],
-					challenge[0], challenge[1], challenge[2], challenge[3], challenge[4], challenge[5], challenge[6], challenge[7]);
-			eapmschapv2writtencount++;
-		}
-		zeigerold = zeiger;
-	}
-	return;
-}
+
 /*===========================================================================*/
 static void addeapmschapv2hash(uint8_t id, uint8_t mschapv2usernamelen, uint8_t *mschapv2username, uint8_t *mschapv2request, uint8_t *mschapv2response)
 {
@@ -1976,43 +1680,7 @@ static void processexteapmschapv2(uint64_t eaptimestamp, uint8_t *macto, uint8_t
 	return;
 }
 /*===========================================================================*/
-static void outputeapleaphashlist(void)
-{
-	static eapleaphashlist_t *zeiger, *zeigerold;
 
-	zeiger = eapleaphashlist;
-	zeigerold = eapleaphashlist;
-	if (memcmp(&zeroed32, zeiger->leaprequest, LEAPREQ_LEN_MAX) == 0)
-		return;
-	qsort(eapleaphashlist, eapleaphashlistptr - eapleaphashlist, EAPLEAPHASHLIST_SIZE, sort_eapleaphashlist_by_id);
-	if (fh_eapleap != NULL)
-	{
-		fprintf(fh_eapleap, "%.*s::::%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x\n",
-				zeiger->leapusernamelen, zeiger->leapusername,
-				zeiger->leapresponse[0], zeiger->leapresponse[1], zeiger->leapresponse[2], zeiger->leapresponse[3], zeiger->leapresponse[4], zeiger->leapresponse[5], zeiger->leapresponse[6], zeiger->leapresponse[7],
-				zeiger->leapresponse[8], zeiger->leapresponse[9], zeiger->leapresponse[10], zeiger->leapresponse[11], zeiger->leapresponse[12], zeiger->leapresponse[13], zeiger->leapresponse[14], zeiger->leapresponse[15],
-				zeiger->leapresponse[16], zeiger->leapresponse[17], zeiger->leapresponse[18], zeiger->leapresponse[19], zeiger->leapresponse[20], zeiger->leapresponse[21], zeiger->leapresponse[22], zeiger->leapresponse[23],
-				zeiger->leaprequest[0], zeiger->leaprequest[1], zeiger->leaprequest[2], zeiger->leaprequest[3], zeiger->leaprequest[4], zeiger->leaprequest[5], zeiger->leaprequest[6], zeiger->leaprequest[7]);
-		eapleapwrittencount++;
-	}
-	for (zeiger = eapleaphashlist + 1; zeiger < eapleaphashlistptr; zeiger++)
-	{
-		if ((zeigerold->id == zeiger->id) && (zeigerold->leapusernamelen == zeiger->leapusernamelen) && (memcmp(zeigerold->leapusername, zeiger->leapusername, zeiger->leapusernamelen) == 0) && (memcmp(zeigerold->leaprequest, zeiger->leaprequest, LEAPREQ_LEN_MAX) == 0) && (memcmp(zeigerold->leapresponse, zeiger->leapresponse, LEAPRESP_LEN_MAX) == 0))
-			continue;
-		if (fh_eapleap != NULL)
-		{
-			fprintf(fh_eapleap, "%.*s::::%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x\n",
-					zeiger->leapusernamelen, zeiger->leapusername,
-					zeiger->leapresponse[0], zeiger->leapresponse[1], zeiger->leapresponse[2], zeiger->leapresponse[3], zeiger->leapresponse[4], zeiger->leapresponse[5], zeiger->leapresponse[6], zeiger->leapresponse[7],
-					zeiger->leapresponse[8], zeiger->leapresponse[9], zeiger->leapresponse[10], zeiger->leapresponse[11], zeiger->leapresponse[12], zeiger->leapresponse[13], zeiger->leapresponse[14], zeiger->leapresponse[15],
-					zeiger->leapresponse[16], zeiger->leapresponse[17], zeiger->leapresponse[18], zeiger->leapresponse[19], zeiger->leapresponse[20], zeiger->leapresponse[21], zeiger->leapresponse[22], zeiger->leapresponse[23],
-					zeiger->leaprequest[0], zeiger->leaprequest[1], zeiger->leaprequest[2], zeiger->leaprequest[3], zeiger->leaprequest[4], zeiger->leaprequest[5], zeiger->leaprequest[6], zeiger->leaprequest[7]);
-			eapleapwrittencount++;
-		}
-		zeigerold = zeiger;
-	}
-	return;
-}
 /*===========================================================================*/
 static void addeapleaphash(uint8_t id, uint8_t leapusernamelen, uint8_t *leapusername, uint8_t *leaprequest, uint8_t *leapresponse)
 {
@@ -2126,63 +1794,7 @@ static void processexteapleap(uint64_t eaptimestamp, uint8_t *macto, uint8_t *ma
 	return;
 }
 /*===========================================================================*/
-static void outputeapmd5hashlist(void)
-{
-	static eapmd5hashlist_t *zeiger, *zeigerold;
 
-	zeiger = eapmd5hashlist;
-	zeigerold = eapmd5hashlist;
-	if (memcmp(&zeroed32, zeiger->md5request, EAPMD5_LEN_MAX) == 0)
-		return;
-	qsort(eapmd5hashlist, eapmd5hashlistptr - eapmd5hashlist, EAPMD5HASHLIST_SIZE, sort_eapmd5hashlist_by_id);
-	if (fh_eapmd5 != 0)
-	{
-		fprintf(fh_eapmd5, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x\n",
-				zeiger->md5response[0], zeiger->md5response[1], zeiger->md5response[2], zeiger->md5response[3], zeiger->md5response[4], zeiger->md5response[5], zeiger->md5response[6], zeiger->md5response[7],
-				zeiger->md5response[8], zeiger->md5response[9], zeiger->md5response[10], zeiger->md5response[11], zeiger->md5response[12], zeiger->md5response[13], zeiger->md5response[14], zeiger->md5response[15],
-				zeiger->md5request[0], zeiger->md5request[1], zeiger->md5request[2], zeiger->md5request[3], zeiger->md5request[4], zeiger->md5request[5], zeiger->md5request[6], zeiger->md5request[7],
-				zeiger->md5request[8], zeiger->md5request[9], zeiger->md5request[10], zeiger->md5request[11], zeiger->md5request[12], zeiger->md5request[13], zeiger->md5request[14], zeiger->md5request[15],
-				zeiger->id);
-		eapmd5writtencount++;
-	}
-	if (fh_eapmd5john != 0)
-	{
-		fprintf(fh_eapmd5john, "$chap$%x*%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-				zeiger->id,
-				zeiger->md5request[0], zeiger->md5request[1], zeiger->md5request[2], zeiger->md5request[3], zeiger->md5request[4], zeiger->md5request[5], zeiger->md5request[6], zeiger->md5request[7],
-				zeiger->md5request[8], zeiger->md5request[9], zeiger->md5request[10], zeiger->md5request[11], zeiger->md5request[12], zeiger->md5request[13], zeiger->md5request[14], zeiger->md5request[15],
-				zeiger->md5response[0], zeiger->md5response[1], zeiger->md5response[2], zeiger->md5response[3], zeiger->md5response[4], zeiger->md5response[5], zeiger->md5response[6], zeiger->md5response[7],
-				zeiger->md5response[8], zeiger->md5response[9], zeiger->md5response[10], zeiger->md5response[11], zeiger->md5response[12], zeiger->md5response[13], zeiger->md5response[14], zeiger->md5response[15]);
-		eapmd5johnwrittencount++;
-	}
-	for (zeiger = eapmd5hashlist + 1; zeiger < eapmd5hashlistptr; zeiger++)
-	{
-		if ((zeigerold->id == zeiger->id) && (memcmp(zeigerold->md5request, zeiger->md5request, EAPMD5_LEN_MAX) == 0) && (memcmp(zeigerold->md5response, zeiger->md5response, EAPMD5_LEN_MAX) == 0))
-			continue;
-		if (fh_eapmd5 != 0)
-		{
-			fprintf(fh_eapmd5, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x:%02x\n",
-					zeiger->md5response[0], zeiger->md5response[1], zeiger->md5response[2], zeiger->md5response[3], zeiger->md5response[4], zeiger->md5response[5], zeiger->md5response[6], zeiger->md5response[7],
-					zeiger->md5response[8], zeiger->md5response[9], zeiger->md5response[10], zeiger->md5response[11], zeiger->md5response[12], zeiger->md5response[13], zeiger->md5response[14], zeiger->md5response[15],
-					zeiger->md5request[0], zeiger->md5request[1], zeiger->md5request[2], zeiger->md5request[3], zeiger->md5request[4], zeiger->md5request[5], zeiger->md5request[6], zeiger->md5request[7],
-					zeiger->md5request[8], zeiger->md5request[9], zeiger->md5request[10], zeiger->md5request[11], zeiger->md5request[12], zeiger->md5request[13], zeiger->md5request[14], zeiger->md5request[15],
-					zeiger->id);
-			eapmd5writtencount++;
-		}
-		if (fh_eapmd5john != 0)
-		{
-			fprintf(fh_eapmd5john, "$chap$%x*%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-					zeiger->id,
-					zeiger->md5request[0], zeiger->md5request[1], zeiger->md5request[2], zeiger->md5request[3], zeiger->md5request[4], zeiger->md5request[5], zeiger->md5request[6], zeiger->md5request[7],
-					zeiger->md5request[8], zeiger->md5request[9], zeiger->md5request[10], zeiger->md5request[11], zeiger->md5request[12], zeiger->md5request[13], zeiger->md5request[14], zeiger->md5request[15],
-					zeiger->md5response[0], zeiger->md5response[1], zeiger->md5response[2], zeiger->md5response[3], zeiger->md5response[4], zeiger->md5response[5], zeiger->md5response[6], zeiger->md5response[7],
-					zeiger->md5response[8], zeiger->md5response[9], zeiger->md5response[10], zeiger->md5response[11], zeiger->md5response[12], zeiger->md5response[13], zeiger->md5response[14], zeiger->md5response[15]);
-			eapmd5johnwrittencount++;
-		}
-		zeigerold = zeiger;
-	}
-	return;
-}
 /*===========================================================================*/
 static void addeapmd5hash(uint8_t id, uint8_t *challenge, uint8_t *response)
 {
@@ -2263,21 +1875,6 @@ static void processexteapmd5(uint64_t eaptimestamp, uint8_t *macto, uint8_t *mac
 	return;
 }
 /*===========================================================================*/
-static void hccap2base(unsigned char *in, unsigned char b)
-{
-	static const char itoa64[65] = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-	fprintf(fh_pmkideapoljtrdeprecated, "%c", (itoa64[in[0] >> 2]));
-	fprintf(fh_pmkideapoljtrdeprecated, "%c", (itoa64[((in[0] & 0x03) << 4) | (in[1] >> 4)]));
-	if (b)
-	{
-		fprintf(fh_pmkideapoljtrdeprecated, "%c", (itoa64[((in[1] & 0x0f) << 2) | (in[2] >> 6)]));
-		fprintf(fh_pmkideapoljtrdeprecated, "%c", (itoa64[in[2] & 0x3f]));
-	}
-	else
-		fprintf(fh_pmkideapoljtrdeprecated, "%c", (itoa64[((in[1] & 0x0f) << 2)]));
-	return;
-}
 /*===========================================================================*/
 static bool testfaultypmkid(uint8_t *macsta)
 {
@@ -2565,85 +2162,6 @@ static handshakelist_t *gethandshake(maclist2_t *zeigermac, handshakelist_t *zei
 				else
 					eapolncwrittencount++;
 			}
-			if ((fh_pmkideapoljtrdeprecated != 0) && (zeigerhs->rcgap == 0))
-			{
-				memset(&hccap, 0, sizeof(hccap_t));
-				memcpy(&hccap.ap, zeigerhs->ap, 6);
-				memcpy(&hccap.client, zeigerhs->client, 6);
-				memcpy(&hccap.anonce, zeigerhs->anonce, 32);
-				memcpy(&hccap.snonce, wpak->nonce, 32);
-				memcpy(&hccap.keymic, &wpak->keymic, 16);
-				hccap.keyver = keyvertemp;
-				hccap.eapol_size = zeigerhs->eapauthlen;
-				memcpy(&hccap.eapol, &eapoltemp, zeigerhs->eapauthlen);
-#ifdef BIG_ENDIAN_HOST
-				hccap.eapol_size = byte_swap_16(hccap.eapol_size);
-#endif
-				fprintf(fh_pmkideapoljtrdeprecated, "%.*s:$WPAPSK$%.*s#", zeigermac->essidlen, zeigermac->essid, zeigermac->essidlen, zeigermac->essid);
-				hcpos = (unsigned char *)&hccap;
-				for (i = 36; i + 3 < (int)HCCAP_SIZE; i += 3)
-					hccap2base(&hcpos[i], 1);
-				hccap2base(&hcpos[i], 0);
-				fprintf(fh_pmkideapoljtrdeprecated, ":%02x-%02x-%02x-%02x-%02x-%02x:%02x-%02x-%02x-%02x-%02x-%02x:%02x%02x%02x%02x%02x%02x",
-						zeigerhs->client[0], zeigerhs->client[1], zeigerhs->client[2], zeigerhs->client[3], zeigerhs->client[4], zeigerhs->client[5],
-						zeigerhs->ap[0], zeigerhs->ap[1], zeigerhs->ap[2], zeigerhs->ap[3], zeigerhs->ap[4], zeigerhs->ap[5],
-						zeigerhs->ap[0], zeigerhs->ap[1], zeigerhs->ap[2], zeigerhs->ap[3], zeigerhs->ap[4], zeigerhs->ap[5]);
-				if (keyvertemp == 1)
-					fprintf(fh_pmkideapoljtrdeprecated, "::WPA");
-				else
-					fprintf(fh_pmkideapoljtrdeprecated, "::WPA2");
-				if ((zeigerhs->status & 0x7) == 0)
-					fprintf(fh_pmkideapoljtrdeprecated, ":not verified");
-				else
-					fprintf(fh_pmkideapoljtrdeprecated, ":verified");
-				fprintf(fh_pmkideapoljtrdeprecated, ":%s\n", basename(jtrbasenamedeprecated));
-				eapolwrittenjcountdeprecated++;
-			}
-			if (fh_hccapxdeprecated != 0)
-			{
-				memset(&hccapx, 0, sizeof(hccapx_t));
-				hccapx.signature = HCCAPX_SIGNATURE;
-				hccapx.version = HCCAPX_VERSION;
-				hccapx.message_pair = zeigerhs->status;
-				hccapx.essid_len = zeigermac->essidlen;
-				memcpy(&hccapx.essid, zeigermac->essid, zeigermac->essidlen);
-				memcpy(&hccapx.ap, zeigerhs->ap, 6);
-				memcpy(&hccapx.client, zeigerhs->client, 6);
-				memcpy(&hccapx.anonce, zeigerhs->anonce, 32);
-				memcpy(&hccapx.snonce, wpak->nonce, 32);
-				hccapx.eapol_len = zeigerhs->eapauthlen;
-				memcpy(&hccapx.eapol, &eapoltemp, zeigerhs->eapauthlen);
-				hccapx.keyver = keyvertemp;
-				memcpy(&hccapx.keymic, wpak->keymic, 16);
-#ifdef BIG_ENDIAN_HOST
-				hccapx.signature = byte_swap_32(hccapx.signature);
-				hccapx.version = byte_swap_32(hccapx.version);
-				hccapx.eapol_len = byte_swap_16(hccapx.eapol_len);
-#endif
-				fwrite(&hccapx, sizeof(hccapx_t), 1, fh_hccapxdeprecated);
-				if (zeigerhs->rcgap == 0)
-					eapolwrittenhcpxcountdeprecated++;
-				else
-					eapolncwrittenhcpxcountdeprecated++;
-			}
-			if ((fh_hccapdeprecated != 0) && (zeigerhs->rcgap == 0))
-			{
-				memset(&hccap, 0, sizeof(hccap_t));
-				memcpy(&hccap.essid, zeigermac->essid, zeigermac->essidlen);
-				memcpy(&hccap.ap, zeigerhs->ap, 6);
-				memcpy(&hccap.client, zeigerhs->client, 6);
-				memcpy(&hccap.anonce, zeigerhs->anonce, 32);
-				memcpy(&hccap.snonce, wpak->nonce, 32);
-				memcpy(&hccap.keymic, wpak->keymic, 16);
-				hccap.keyver = keyvertemp;
-				hccap.eapol_size = zeigerhs->eapauthlen;
-				memcpy(&hccap.eapol, &eapoltemp, zeigerhs->eapauthlen);
-#ifdef BIG_ENDIAN_HOST
-				hccap.eapol_size = byte_swap_16(hccap.eapol_size);
-#endif
-				fwrite(&hccap, HCCAP_SIZE, 1, fh_hccapdeprecated);
-				eapolwrittenhcpcountdeprecated++;
-			}
 		}
 		if (memcmp(zeigerhs->ap, zeigermac->addr, 6) > 0)
 		{
@@ -2728,30 +2246,6 @@ static pmkidlist_t *getpmkid(maclist2_t *zeigermac, pmkidlist_t *zeigerpmkidakt)
 				else
 					fprintf(fh_pmkideapolclient, "***%02x\t%s\n", zeigerpmkid->status, timestringhs);
 				pmkidclientwrittenhcount++;
-			}
-			if (fh_pmkideapoljtrdeprecated != 0)
-			{
-				fprintf(fh_pmkideapoljtrdeprecated, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x*",
-						zeigerpmkid->pmkid[0], zeigerpmkid->pmkid[1], zeigerpmkid->pmkid[2], zeigerpmkid->pmkid[3], zeigerpmkid->pmkid[4], zeigerpmkid->pmkid[5], zeigerpmkid->pmkid[6], zeigerpmkid->pmkid[7],
-						zeigerpmkid->pmkid[8], zeigerpmkid->pmkid[9], zeigerpmkid->pmkid[10], zeigerpmkid->pmkid[11], zeigerpmkid->pmkid[12], zeigerpmkid->pmkid[13], zeigerpmkid->pmkid[14], zeigerpmkid->pmkid[15],
-						zeigerpmkid->ap[0], zeigerpmkid->ap[1], zeigerpmkid->ap[2], zeigerpmkid->ap[3], zeigerpmkid->ap[4], zeigerpmkid->ap[5],
-						zeigerpmkid->client[0], zeigerpmkid->client[1], zeigerpmkid->client[2], zeigerpmkid->client[3], zeigerpmkid->client[4], zeigerpmkid->client[5]);
-				for (p = 0; p < zeigermac->essidlen; p++)
-					fprintf(fh_pmkideapoljtrdeprecated, "%02x", zeigermac->essid[p]);
-				fprintf(fh_pmkideapoljtrdeprecated, "\n");
-				pmkidwrittenjcountdeprecated++;
-			}
-			if (fh_pmkiddeprecated != 0)
-			{
-				fprintf(fh_pmkiddeprecated, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x*%02x%02x%02x%02x%02x%02x*",
-						zeigerpmkid->pmkid[0], zeigerpmkid->pmkid[1], zeigerpmkid->pmkid[2], zeigerpmkid->pmkid[3], zeigerpmkid->pmkid[4], zeigerpmkid->pmkid[5], zeigerpmkid->pmkid[6], zeigerpmkid->pmkid[7],
-						zeigerpmkid->pmkid[8], zeigerpmkid->pmkid[9], zeigerpmkid->pmkid[10], zeigerpmkid->pmkid[11], zeigerpmkid->pmkid[12], zeigerpmkid->pmkid[13], zeigerpmkid->pmkid[14], zeigerpmkid->pmkid[15],
-						zeigerpmkid->ap[0], zeigerpmkid->ap[1], zeigerpmkid->ap[2], zeigerpmkid->ap[3], zeigerpmkid->ap[4], zeigerpmkid->ap[5],
-						zeigerpmkid->client[0], zeigerpmkid->client[1], zeigerpmkid->client[2], zeigerpmkid->client[3], zeigerpmkid->client[4], zeigerpmkid->client[5]);
-				for (p = 0; p < zeigermac->essidlen; p++)
-					fprintf(fh_pmkiddeprecated, "%02x", zeigermac->essid[p]);
-				fprintf(fh_pmkiddeprecated, "\n");
-				pmkidwrittencountdeprecated++;
 			}
 		}
 		if (memcmp(zeigerpmkid->ap, zeigermac->addr, 6) > 0)
@@ -3732,8 +3226,6 @@ static void process80211eapol_m4(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 	}
 	if (ntohs(wpak->wpadatalen) > (restlen - EAPAUTH_SIZE - WPAKEY_SIZE))
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M4 wpa data len > eap authentication len: %ld\n", rawpacketcount);
 		eapolm4errorcount++;
 		return;
 	}
@@ -3744,8 +3236,6 @@ static void process80211eapol_m4(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 #endif
 	if (memcmp(&zeroed32, wpak->keymic, 16) == 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M4 key mic zeroed: %ld\n", rawpacketcount);
 		eapolm4errorcount++;
 		return;
 	}
@@ -3753,23 +3243,17 @@ static void process80211eapol_m4(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 	{
 		if (memcmp(&zeroed32, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M4 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm4errorcount++;
 			return;
 		}
 		if (memcmp(&foxtrott, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M4 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm4errorcount++;
 			return;
 		}
 	}
 	if (memcmp(&zeroed32, wpak->keyid, 8) != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M4 key id != 0: %ld\n", rawpacketcount);
 		eapolm4errorcount++;
 		return;
 	}
@@ -3891,8 +3375,6 @@ static void process80211eapol_m3(uint64_t eaptimestamp, uint8_t *macclient, uint
 	}
 	if (ntohs(wpak->wpadatalen) > (restlen - EAPAUTH_SIZE - WPAKEY_SIZE))
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M3 wpa data len > eap authentication len: %ld\n", rawpacketcount);
 		eapolm3errorcount++;
 		return;
 	}
@@ -3903,8 +3385,6 @@ static void process80211eapol_m3(uint64_t eaptimestamp, uint8_t *macclient, uint
 #endif
 	if (memcmp(&zeroed32, wpak->keymic, 16) == 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M3 key mic zeroed: %ld\n", rawpacketcount);
 		eapolm3errorcount++;
 		return;
 	}
@@ -3912,23 +3392,17 @@ static void process80211eapol_m3(uint64_t eaptimestamp, uint8_t *macclient, uint
 	{
 		if (memcmp(&zeroed32, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M3 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm3errorcount++;
 			return;
 		}
 		if (memcmp(&foxtrott, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M3 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm3errorcount++;
 			return;
 		}
 	}
 	if (memcmp(&zeroed32, wpak->keyid, 8) != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M3 key id != 0: %ld\n", rawpacketcount);
 		eapolm3errorcount++;
 		return;
 	}
@@ -4055,8 +3529,6 @@ static void process80211eapol_m2(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 	wpainfolen = ntohs(wpak->wpadatalen);
 	if (wpainfolen > (restlen - EAPAUTH_SIZE - WPAKEY_SIZE))
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M2 wpa data len > eap authentication len: %ld\n", rawpacketcount);
 		eapolm2errorcount++;
 		return;
 	}
@@ -4069,8 +3541,6 @@ static void process80211eapol_m2(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 		return;
 	if (memcmp(&zeroed32, wpak->keymic, 16) == 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M2 key mic zeroed: %ld\n", rawpacketcount);
 		eapolm2errorcount++;
 		return;
 	}
@@ -4078,37 +3548,27 @@ static void process80211eapol_m2(uint64_t eaptimestamp, uint8_t *macap, uint8_t 
 	{
 		if (memcmp(&zeroed32, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M2 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm2errorcount++;
 			return;
 		}
 		if (memcmp(&foxtrott, &wpak->keymic[c], 4) == 0)
 		{
-			if (fh_log != NULL)
-				fprintf(fh_log, "EAPOL M2 key mic possible plcp bit error: %ld\n", rawpacketcount);
 			eapolm2errorcount++;
 			return;
 		}
 	}
 	if (memcmp(&zeroed32, wpak->keyiv, 16) != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M2 key iv != 0: %ld\n", rawpacketcount);
 		eapolm2errorcount++;
 		return;
 	}
 	if (wpak->keyrsc != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M2 key rsc != 0: %ld\n", rawpacketcount);
 		eapolm2errorcount++;
 		return;
 	}
 	if (memcmp(&zeroed32, wpak->keyid, 8) != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M2 key id != 0: %ld\n", rawpacketcount);
 		eapolm2errorcount++;
 		return;
 	}
@@ -4281,8 +3741,6 @@ static void process80211eapol_m1(uint64_t eaptimestamp, uint8_t *macclient, uint
 	}
 	if (ntohs(wpak->wpadatalen) > (restlen - EAPAUTH_SIZE - WPAKEY_SIZE))
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M1 wpa data len > eap authentication len: %ld\n", rawpacketcount);
 		eapolm1errorcount++;
 		return;
 	}
@@ -4293,15 +3751,11 @@ static void process80211eapol_m1(uint64_t eaptimestamp, uint8_t *macclient, uint
 #endif
 	if (wpak->keyrsc != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M1 key rc != 0: %ld\n", rawpacketcount);
 		eapolm1errorcount++;
 		return;
 	}
 	if (memcmp(&zeroed32, wpak->keyid, 8) != 0)
 	{
-		if (fh_log != NULL)
-			fprintf(fh_log, "EAPOL M1 key id != 0: %ld\n", rawpacketcount);
 		eapolm1errorcount++;
 		return;
 	}
@@ -4344,15 +3798,11 @@ static void process80211eapol_m1(uint64_t eaptimestamp, uint8_t *macclient, uint
 				{
 					if (memcmp(&zeroed32, &pmkid->pmkid[c], 4) == 0)
 					{
-						if (fh_log != NULL)
-							fprintf(fh_log, "EAPOL M1 possible plcp bit error: %ld\n", rawpacketcount);
 						eapolm1errorcount++;
 						return;
 					}
 					if (memcmp(&foxtrott, &pmkid->pmkid[c], 4) == 0)
 					{
-						if (fh_log != NULL)
-							fprintf(fh_log, "EAPOL M1 possible plcp bit error: %ld\n", rawpacketcount);
 						eapolm1errorcount++;
 						return;
 					}
@@ -4472,8 +3922,6 @@ static void process80211eap(uint64_t eaptimestamp, uint8_t *macto, uint8_t *macf
 	else if (eapauth->type == EAPOL_LOGOFF)
 	{
 	}
-	if (fh_nmea != NULL)
-		writegpwpl(macfm);
 	return;
 }
 /*===========================================================================*/
@@ -4553,7 +4001,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4561,10 +4009,8 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
-	if (fh_nmea != NULL)
-		writegpwpl(macclient);
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = reassociationrequesttimestamp;
 	aplistptr->count = 1;
@@ -4604,7 +4050,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4612,7 +4058,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = reassociationrequesttimestamp;
@@ -4627,8 +4073,6 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 	aplistptr->akm = tags.akm;
 	if (cleanbackmac() == false)
 		aplistptr++;
-	if (fh_nmea != NULL)
-		writegpwpl(macclient);
 	return;
 }
 /*===========================================================================*/
@@ -4652,7 +4096,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4660,7 +4104,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = associationrequesttimestamp;
@@ -4699,7 +4143,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4707,7 +4151,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = associationrequesttimestamp;
@@ -4722,8 +4166,6 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 	aplistptr->akm = tags.akm;
 	if (cleanbackmac() == false)
 		aplistptr++;
-	if (fh_nmea != NULL)
-		writegpwpl(macclient);
 	return;
 }
 /*===========================================================================*/
@@ -4753,8 +4195,6 @@ static inline void process80211authentication(uint8_t *macfm, uint32_t authentic
 		authnetworkeapcount++;
 	else
 		authunknowncount++;
-	if (fh_nmea != NULL)
-		writegpwpl(macfm);
 	return;
 }
 /*===========================================================================*/
@@ -4774,7 +4214,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4782,7 +4222,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = proberequesttimestamp;
@@ -4796,7 +4236,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4804,7 +4244,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = proberequesttimestamp;
@@ -4835,7 +4275,7 @@ static void process80211probe_req(uint64_t proberequesttimestamp, uint8_t *maccl
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4843,7 +4283,7 @@ static void process80211probe_req(uint64_t proberequesttimestamp, uint8_t *maccl
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = proberequesttimestamp;
@@ -4886,7 +4326,7 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -4894,7 +4334,7 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = proberesponsetimestamp;
@@ -4917,12 +4357,8 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 	memcpy(aplistptr->devicename, tags.devicename, tags.devicenamelen);
 	aplistptr->enrolleelen = tags.enrolleelen;
 	memcpy(aplistptr->enrollee, tags.enrollee, tags.enrolleelen);
-	if (fh_csv != NULL)
-		writecsv(proberesponsetimestamp, macap, &tags);
 	if (cleanbackmac() == false)
 		aplistptr++;
-	if (fh_nmea != NULL)
-		writegpwpl(macap);
 	return;
 }
 /*===========================================================================*/
@@ -5011,7 +4447,7 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -5019,7 +4455,7 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = beacontimestamp;
@@ -5042,12 +4478,8 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 	memcpy(aplistptr->devicename, tags.devicename, tags.devicenamelen);
 	aplistptr->enrolleelen = tags.enrolleelen;
 	memcpy(aplistptr->enrollee, tags.enrollee, tags.enrolleelen);
-	if (fh_csv != NULL)
-		writecsv(beacontimestamp, macap, &tags);
 	if (cleanbackmac() == false)
 		aplistptr++;
-	if (fh_nmea != NULL)
-		writegpwpl(macap);
 	return;
 }
 /*===========================================================================*/
@@ -5074,7 +4506,7 @@ static void process80211actionmeasurement(uint64_t actiontimestamp, uint8_t *mac
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
 			fprintf(stderr, "failed to allocate memory for internal list\n");
@@ -5082,7 +4514,7 @@ static void process80211actionmeasurement(uint64_t actiontimestamp, uint8_t *mac
 		}
 		aplist = aplistnew;
 		aplistptr = aplistnew + maclistmax;
-		maclistmax += MACLIST_MAX;
+		maclistmax += MACLIST2_MAX;
 	}
 	memset(aplistptr, 0, MACLIST_SIZE);
 	aplistptr->timestamp = actiontimestamp;
@@ -5366,32 +4798,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 
 	rssi = 0;
 	interfacechannel = 0;
-	if (fh_raw_out != NULL)
-	{
-		cs = captimestamp & 0xff;
-		cs ^= (captimestamp >> 8) & 0xff;
-		cs ^= (captimestamp >> 16) & 0xff;
-		cs ^= (captimestamp >> 24) & 0xff;
-		cs ^= (captimestamp >> 32) & 0xff;
-		cs ^= (captimestamp >> 40) & 0xff;
-		cs ^= (captimestamp >> 48) & 0xff;
-		cs ^= (captimestamp >> 56) & 0xff;
-		cs ^= linktype & 0xff;
-		cs ^= (linktype >> 8) & 0xff;
-		cs ^= (linktype >> 16) & 0xff;
-		cs ^= (linktype >> 24) & 0xff;
-#ifndef BIG_ENDIAN_HOST
-		fprintf(fh_raw_out, "%016" PRIx64 "*%08x*", captimestamp, linktype);
-#else
-		fprintf(fh_raw_out, "%016" PRIx64 "*%08x*", byte_swap_64(captimestamp), byte_swap_32(linktype));
-#endif
-		for (p = 0; p < caplen; p++)
-		{
-			fprintf(fh_raw_out, "%02x", capptr[p]);
-			cs ^= capptr[p];
-		}
-		fprintf(fh_raw_out, "*%02x\n", cs);
-	}
 
 	if (captimestamp < captimestampold)
 		sequenceerrorcount++;
@@ -5414,8 +4820,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			radiotaperrorcount++;
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read radiotap header: %ld\n", rawpacketcount);
 			return;
 		}
 		rth = (rth_t *)capptr;
@@ -5427,16 +4831,12 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			radiotaperrorcount++;
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read radiotap header: %ld\n", rawpacketcount);
 			return;
 		}
 		if (rth->it_version != 0)
 		{
 			pcapreaderrors++;
 			radiotaperrorcount++;
-			if (fh_log != NULL)
-				fprintf(fh_log, "unsupported radiotap header version: %ld\n", rawpacketcount);
 			return;
 		}
 		getradiotapfield(rth->it_len, caplen, capptr);
@@ -5454,8 +4854,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read ppi header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read ppi header: %ld\n", rawpacketcount);
 			return;
 		}
 		ppi = (ppi_t *)capptr;
@@ -5466,8 +4864,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read ppi header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read ppi header: %ld\n", rawpacketcount);
 			return;
 		}
 		packetlen = caplen - ppi->pph_len;
@@ -5479,8 +4875,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read prism header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read prism header: %ld\n", rawpacketcount);
 			return;
 		}
 		prism = (prism_t *)capptr;
@@ -5495,8 +4889,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "failed to read prism header\n");
-				if (fh_log != NULL)
-					fprintf(fh_log, "failed to read prism header: %ld\n", rawpacketcount);
 				return;
 			}
 			prism->msglen = caplen - prism->frmlen.data;
@@ -5510,8 +4902,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read avs header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read avs header: %ld\n", rawpacketcount);
 			return;
 		}
 		avs = (avs_t *)capptr;
@@ -5522,8 +4912,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read avs header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read avs header: %ld\n", rawpacketcount);
 			return;
 		}
 		packetlen = caplen - avs->len;
@@ -5535,8 +4923,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read ethernet header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read ethernet header: %ld\n", rawpacketcount);
 			return;
 		}
 		processethernetpacket(captimestamp, caplen, capptr);
@@ -5548,8 +4934,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read loopback header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read loopback header: %ld\n", rawpacketcount);
 			return;
 		}
 		processlobapacket(captimestamp, caplen, capptr);
@@ -5558,8 +4942,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 	else
 	{
 		fprintf(stdout, "unsupported network type %d\n", linktype);
-		if (fh_log != NULL)
-			fprintf(fh_log, "unsupported network type %d: %ld\n", linktype, rawpacketcount);
 		return;
 	}
 
@@ -5567,8 +4949,6 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "failed to read packet\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "failed to read packet (len < 4): %ld\n", rawpacketcount);
 		return;
 	}
 	fcs = (fcs_t *)(packetptr + packetlen - 4);
@@ -5584,6 +4964,8 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 	process80211packet(captimestamp, packetlen, packetptr);
 	return;
 }
+
+
 /*===========================================================================*/
 void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 {
@@ -5595,15 +4977,12 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	static uint8_t packet[MAXPACPSNAPLEN];
 
 	ancientdumpfileformat = true;
-	fprintf(stdout, "%s %s reading from %s...\n", basename(eigenname), VERSION_TAG, basename(pcapinname));
 	iface = 1;
 	res = read(fd, &pcapfhdr, PCAPHDR_SIZE);
 	if (res != PCAPHDR_SIZE)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "failed to read pcap header\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "failed to read pcap header: %s\n", basename(pcapinname));
 		return;
 	}
 
@@ -5637,24 +5016,18 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "unsupported major pcap version\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "unsupported major pcap version: %d\n", pcapfhdr.version_major);
 		return;
 	}
 	if (pcapfhdr.version_minor != PCAP_MINOR_VER)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "unsupported minor pcap version\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "unsupported minor pcap version: %d\n", pcapfhdr.version_minor);
 		return;
 	}
 	if (pcapfhdr.snaplen > MAXPACPSNAPLEN)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "detected oversized snaplen (%d)\n", pcapfhdr.snaplen);
-		if (fh_log != NULL)
-			fprintf(fh_log, "detected oversized snaplen (%d): %d\n", pcapfhdr.snaplen, pcapfhdr.version_minor);
 	}
 
 	while (1)
@@ -5666,8 +5039,6 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read pcap packet header for packet %ld\n", rawpacketcount);
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read pcap packet header: %ld\n", rawpacketcount);
 			break;
 		}
 
@@ -5687,8 +5058,6 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		if (pcaprhdr.incl_len > pcapfhdr.snaplen)
 		{
 			pcapreaderrors++;
-			if (fh_log != NULL)
-				fprintf(fh_log, "inclusive length > snaplen: %ld\n", rawpacketcount);
 		}
 		if (pcaprhdr.incl_len < MAXPACPSNAPLEN)
 		{
@@ -5698,8 +5067,6 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "failed to read packet %ld\n", rawpacketcount);
-				if (fh_log != NULL)
-					fprintf(fh_log, "packet error: %ld\n", rawpacketcount);
 				break;
 			}
 		}
@@ -5711,8 +5078,6 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "failed to set file pointer\n");
-				if (fh_log != NULL)
-					fprintf(fh_log, "failed to set file pointer: %s\n", basename(pcapinname));
 				break;
 			}
 			continue;
@@ -5725,21 +5090,16 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		}
 	}
 
-	fprintf(stdout, "\nsummary capture\n"
-					"--------------------\n"
-					"version (pcap/cap).......................: %d.%d (very basic format without any additional information)\n",
-			basename(pcaporgname), versionmajor, versionminor);
-	printlinklayerinfo();
+	
+
+	//printlinklayerinfo();
 	cleanupmac();
 	outputdeviceinfolist();
 	outputwpalists();
-	outputeapmd5hashlist();
-	outputeapleaphashlist();
-	outputeapmschapv2hashlist();
-	outputtacacsplist();
 	outputwordlists();
-	printcontentinfo();
-	//printf("Process Cap Complete\n");
+	//printcontentinfo();
+	//send_lists();
+	// printf("Process Cap Complete\n");
 	return;
 }
 /*===========================================================================*/
@@ -5864,38 +5224,6 @@ static int pcapngoptionwalk(uint32_t blocktype, uint8_t *optr, int restlen)
 			if (option->option_length < 64)
 				memcpy(&pcapngweakcandidate, &option->data, option->option_length);
 		}
-		else if (option->option_code == OPTIONCODE_NMEA)
-		{
-			memset(&nmeasentence, 0, OPTIONLEN_MAX);
-			if (option->option_length >= 48)
-			{
-				nmealen = option->option_length;
-				memcpy(&nmeasentence, &option->data, option->option_length);
-				csc = 0;
-				csn = 0;
-				pn = 1;
-				while ((nmeasentence[pn] != 0) && (nmeasentence[pn] != '*'))
-				{
-					csn ^= nmeasentence[pn];
-					pn++;
-				}
-				if (nmeasentence[pn] == '*')
-				{
-					csc = strtol(&nmeasentence[option->option_length - 2], NULL, 16);
-					if (csn == csc)
-					{
-						if (fh_nmea != NULL)
-							fprintf(fh_nmea, "%s\n", nmeasentence);
-						nmeacount++;
-					}
-					else
-					{
-						nmealen = 0;
-						nmeaerrorcount++;
-					}
-				}
-			}
-		}
 		optr += option->option_length + padding + OH_SIZE;
 		restlen -= option->option_length + padding + OH_SIZE;
 	}
@@ -5927,7 +5255,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 
 	magicblockcount = 0;
 	ancientdumpfileformat = false;
-	fprintf(stdout, "%s %s reading from %s...\n", basename(eigenname), VERSION_TAG, basename(pcapinname));
+	//fprintf(stdout, "%s %s reading from %s...\n", basename(eigenname), VERSION_TAG, basename(pcapinname));
 	iface = 0;
 	nmealen = 0;
 	memset(&interfaceid, 0, sizeof(int) * MAX_INTERFACE_ID);
@@ -5936,8 +5264,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "failed to get file size\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "failed to get file size: %s\n", basename(pcapinname));
 		return;
 	}
 
@@ -5946,8 +5272,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "failed to set file pointer\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "failed to set file pointer: %s\n", basename(pcapinname));
 		return;
 	}
 
@@ -5960,8 +5284,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to set file pointer\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to set file pointer: %s\n", basename(pcapinname));
 			break;
 		}
 		res = read(fd, &pcpngblock, BH_SIZE);
@@ -5973,8 +5295,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read block header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read block header: %s\n", basename(pcapinname));
 			break;
 		}
 		pcapngbh = (block_header_t *)pcpngblock;
@@ -6000,8 +5320,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read pcapng block header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read pcapng block header: %ld\n", rawpacketcount);
 			break;
 		}
 		resseek = lseek(fd, aktseek, SEEK_SET);
@@ -6009,8 +5327,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to set file pointer\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to set file pointer: %s\n", basename(pcapinname));
 			break;
 		}
 		res = read(fd, &pcpngblock, blocklen);
@@ -6018,16 +5334,12 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read pcapng block header\n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read pcapng block header: %ld\n", rawpacketcount);
 			break;
 		}
 		if (memcmp(&pcpngblock[4], &pcpngblock[blocklen - 4], 4) != 0)
 		{
 			pcapreaderrors++;
 			fprintf(stdout, "failed to read pcapng block header \n");
-			if (fh_log != NULL)
-				fprintf(fh_log, "failed to read pcapng block header: %ld\n", rawpacketcount);
 			break;
 		}
 		if (blocktype == PCAPNGBLOCKTYPE)
@@ -6050,16 +5362,12 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "unsupported major pcapng version\n");
-				if (fh_log != NULL)
-					fprintf(fh_log, "unsupported major pcapng version: %d\n", pcapngshb->major_version);
 				break;
 			}
 			if (pcapngshb->minor_version != PCAPNG_MINOR_VER)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "unsupported minor pcapng version\n");
-				if (fh_log != NULL)
-					fprintf(fh_log, "unsupported minor pcapng version: %d\n", pcapngshb->minor_version);
 				break;
 			}
 			if (pcapngoptionwalk(blocktype, pcapngshb->data, blocklen - SHB_SIZE) != 0)
@@ -6084,15 +5392,11 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "detected oversized snaplen (%d)\n", snaplen);
-				if (fh_log != NULL)
-					fprintf(fh_log, "detected oversized snaplen: %ld\n", rawpacketcount);
 			}
 			if (iface >= MAX_INTERFACE_ID)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "maximum of supported interfaces reached: %d\n", iface);
-				if (fh_log != NULL)
-					fprintf(fh_log, "maximum of supported interfaces reached: %d\n", iface);
 				continue;
 			}
 			dltlinktype[iface] = pcapngidb->linktype;
@@ -6112,16 +5416,12 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "caplen > MAXSNAPLEN (%d > %d)\n", pcapngpb->caplen, MAXPACPSNAPLEN);
-				if (fh_log != NULL)
-					fprintf(fh_log, "caplen > MAXSNAPLEN: %ld\n", rawpacketcount);
 				continue;
 			}
 			if (pcapngpb->caplen > blocklen)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "caplen > blocklen (%d > %d)\n", pcapngpb->caplen, blocklen);
-				if (fh_log != NULL)
-					fprintf(fh_log, "caplen > blocklen: %ld\n", rawpacketcount);
 				continue;
 			}
 			rawpacketcount++;
@@ -6155,8 +5455,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "maximum of supported interfaces reached: %d\n", iface);
-				if (fh_log != NULL)
-					fprintf(stdout, "maximum of supported interfaces reached: %d\n", iface);
 				continue;
 			}
 			timestamppcapng = pcapngepb->timestamp_high;
@@ -6172,24 +5470,18 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "caplen != len (%d != %d)\n", pcapngepb->caplen, pcapngepb->len);
-				if (fh_log != NULL)
-					fprintf(fh_log, "caplen != len: %ld\n", rawpacketcount);
 				continue;
 			}
 			if (pcapngepb->caplen > MAXPACPSNAPLEN)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "caplen > MAXSNAPLEN (%d > %d)\n", pcapngepb->caplen, MAXPACPSNAPLEN);
-				if (fh_log != NULL)
-					fprintf(fh_log, "caplen > MAXSNAPLEN: %ld\n", rawpacketcount);
 				continue;
 			}
 			if (pcapngepb->caplen > blocklen)
 			{
 				pcapreaderrors++;
 				fprintf(stdout, "caplen > blocklen (%d > %d)\n", pcapngepb->caplen, blocklen);
-				if (fh_log != NULL)
-					fprintf(fh_log, "caplen > blocklen: %ld\n", rawpacketcount);
 				continue;
 			}
 			rawpacketcount++;
@@ -6227,7 +5519,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			skippedpacketcount++;
 		}
 	}
-	fprintf(stdout, "\ncapture summary\n"
+	/* fprintf(stdout, "\ncapture summary\n"
 					"--------------------\n"
 					"version (pcapng).........................: %d.%d\n"
 					"operating system.........................: %s\n"
@@ -6255,18 +5547,15 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			myaktsnonce[0], myaktsnonce[1], myaktsnonce[2], myaktsnonce[3], myaktsnonce[4], myaktsnonce[5], myaktsnonce[6], myaktsnonce[7],
 			myaktsnonce[8], myaktsnonce[9], myaktsnonce[10], myaktsnonce[11], myaktsnonce[12], myaktsnonce[13], myaktsnonce[14], myaktsnonce[15],
 			myaktsnonce[16], myaktsnonce[17], myaktsnonce[18], myaktsnonce[19], myaktsnonce[20], myaktsnonce[21], myaktsnonce[22], myaktsnonce[23],
-			myaktsnonce[24], myaktsnonce[25], myaktsnonce[26], myaktsnonce[27], myaktsnonce[28], myaktsnonce[29], myaktsnonce[30], myaktsnonce[31]);
-	printlinklayerinfo();
+			myaktsnonce[24], myaktsnonce[25], myaktsnonce[26], myaktsnonce[27], myaktsnonce[28], myaktsnonce[29], myaktsnonce[30], myaktsnonce[31]); */
+	//printlinklayerinfo();
 	cleanupmac();
 	outputdeviceinfolist();
 	outputwpalists();
 	outputwordlists();
-	outputeapmd5hashlist();
-	outputeapleaphashlist();
-	outputeapmschapv2hashlist();
-	outputtacacsplist();
-	printcontentinfo();
-	//printf("Process PCAPNG Complete\n");
+	//printcontentinfo();
+	//send_lists();
+	// printf("Process PCAPNG Complete\n");
 	return;
 }
 /*===========================================================================*/
@@ -6279,15 +5568,14 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 	pcapnameptr = pcapinname;
 
 	jtrbasenamedeprecated = pcapinname;
-	//fd_pcap = open(pcapnameptr, O_RDONLY);
-	//fd_pcap = inputstream;
 	if (fd_pcap == -1)
 	{
 		perror("failed to open file");
 		return false;
 	}
 	magicnumber = getmagicnumber(fd_pcap);
-	if (magicnumber == 0) {
+	if (magicnumber == 0)
+	{
 		printf("Inccorrect Magic\n");
 	}
 	resseek = lseek(fd_pcap, 0L, SEEK_SET);
@@ -6295,8 +5583,6 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 	{
 		pcapreaderrors++;
 		fprintf(stdout, "failed to set file pointer\n");
-		if (fh_log != NULL)
-			fprintf(fh_log, "failed to set file pointer: %s\n", pcapinname);
 		return false;
 	}
 	if (magicnumber == PCAPNGBLOCKTYPE)
@@ -6326,10 +5612,10 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 		fprintf(stdout, "unsupported dump file format: %s\n", pcapinname);
 		return false;
 	}
-#ifdef WANTZLIB
-	if (pcaptempnameptr != NULL)
-		remove(pcaptempnameptr);
-#endif
+
+	/* if (pcaptempnameptr != NULL)
+		remove(pcaptempnameptr); */
+
 	return true;
 }
 /*===========================================================================*/
@@ -6370,7 +5656,6 @@ static inline int fgetline(FILE *inputstream, size_t size, char *buffer)
 	return len;
 }
 /*===========================================================================*/
-
 
 /*===========================================================================*/
 static bool evpdeinitwpa(void)
@@ -6441,53 +5726,234 @@ static bool evpinitwpa(void)
 }
 /*===========================================================================*/
 
+void write_archive(const char *outname, const char **filename, int files_count)
+{
+	struct archive *a;
+	struct archive_entry *entry;
+	struct stat st;
+	char buff[8192];
+	int len;
+	int tarfd;
+
+	a = archive_write_new();
+	archive_write_add_filter_gzip(a);
+	archive_write_set_format_pax_restricted(a);
+	archive_write_open_filename(a, outname);
+	
+	for (int i = 0; i <= files_count - 1; i++)
+	{
+		stat(filename[i], &st);
+		entry = archive_entry_new();
+		archive_entry_set_pathname(entry, filename[i]);
+		archive_entry_set_size(entry, st.st_size);
+		archive_entry_set_filetype(entry, AE_IFREG);
+		archive_entry_set_perm(entry, 0644);
+		archive_write_header(a, entry);
+		tarfd = open(filename[i], O_RDONLY);
+		len = read(tarfd, buff, sizeof(buff));
+		while (len > 0)
+		{
+			archive_write_data(a, buff, len);
+			len = read(tarfd, buff, sizeof(buff));
+		}
+		close(tarfd);
+		archive_entry_free(entry);
+	}
+	archive_write_close(a); 
+	archive_write_free(a);
+}
+
+
+static inline void send_lists(void) {
+
+	cJSON *data = cJSON_CreateObject();
+	cJSON *pcaptool = cJSON_CreateObject();
+	char *string = NULL;
+	static time_t tvmin;
+	static time_t tvmax;
+	static char timestringmin[32];
+	static char timestringmax[32];
+	
+	// Capture Interface
+	cJSON_AddItemToObject(pcaptool, "interface_id", cJSON_CreateNumber(iface));
+	
+	cJSON_AddItemToObject(pcaptool, "raw_packet_count", cJSON_CreateNumber(rawpacketcount));
+	
+	cJSON_AddItemToObject(pcaptool, "skipped_packet_count", cJSON_CreateNumber(skippedpacketcount));
+	
+	cJSON_AddItemToObject(pcaptool, "fcs_frame_count", cJSON_CreateNumber(fcsframecount));
+	
+	cJSON_AddItemToObject(pcaptool, "band24_count", cJSON_CreateNumber(band24count));
+	
+	cJSON_AddItemToObject(pcaptool, "band5_count", cJSON_CreateNumber(band5count));
+	
+	cJSON_AddItemToObject(pcaptool, "band6_count", cJSON_CreateNumber(band6count));
+	
+	cJSON_AddItemToObject(pcaptool, "wds_count", cJSON_CreateNumber(wdscount));
+
+	// Frames containing device info
+	cJSON_AddItemToObject(pcaptool, "device_info_count", cJSON_CreateNumber(deviceinfocount));
+	// Frames Containing ESSID
+	cJSON_AddItemToObject(pcaptool, "essid_count", cJSON_CreateNumber(essidcount));
+	// Frames containing Beacons
+	cJSON_AddItemToObject(pcaptool, "beacon_count", cJSON_CreateNumber(beaconcount));
+	
+	// Becaons per channel
+	int beacon24 = 0;
+	if ((beaconchannel[0] & GHZ24) == GHZ24) {
+		for (int i = 1; i <= 14; i++)
+		{
+			if (beaconchannel[i] != 0)
+				beacon24+=beaconchannel[i];
+		}
+	}
+	cJSON_AddItemToObject(pcaptool, "beacon_count_24", cJSON_CreateNumber(beacon24));
+	int beacon5 = 0;
+	if ((beaconchannel[0] & GHZ5) == GHZ5) {
+		for (int i = 15; i <= CHANNEL_MAX; i++)
+		{
+			if (beaconchannel[i] != 0)
+				beacon5 += beaconchannel[i];
+		}
+	}
+	cJSON_AddItemToObject(pcaptool, "beacon_count_5", cJSON_CreateNumber(beacon5));
+	
+
+	cJSON_AddItemToObject(pcaptool, "probe_request_undirected_count", cJSON_CreateNumber(proberequestundirectedcount));
+	cJSON_AddItemToObject(pcaptool, "probe_request_directed_count", cJSON_CreateNumber(proberequestdirectedcount));
+	cJSON_AddItemToObject(pcaptool, "probe_response_count", cJSON_CreateNumber(proberesponsecount));
+	cJSON_AddItemToObject(pcaptool, "deauthentication_count", cJSON_CreateNumber(deauthenticationcount));
+	cJSON_AddItemToObject(pcaptool, "disassociation_count", cJSON_CreateNumber(disassociationcount));
+	cJSON_AddItemToObject(pcaptool, "authentication_count", cJSON_CreateNumber(authenticationcount));
+	cJSON_AddItemToObject(pcaptool, "auth_open_system_count", cJSON_CreateNumber(authopensystemcount));
+	cJSON_AddItemToObject(pcaptool, "auth_shared_key_count", cJSON_CreateNumber(authsharedkeycount));
+	cJSON_AddItemToObject(pcaptool, "association_request_count", cJSON_CreateNumber(associationrequestcount));
+
+	// Usernames captured
+	cJSON_AddItemToObject(pcaptool, "username_count", cJSON_CreateNumber(usernamecount));
+
+	// Identities captured
+	cJSON_AddItemToObject(pcaptool, "identity_count", cJSON_CreateNumber(identitycount));
+
+	// Total EAPOL M1
+	cJSON_AddItemToObject(pcaptool, "eapol_m1_count", cJSON_CreateNumber(eapolm1count));
+	// Total EAPOL M2
+	cJSON_AddItemToObject(pcaptool, "eapol_m2_count", cJSON_CreateNumber(eapolm2count));
+	// Total EAPOL M3
+	cJSON_AddItemToObject(pcaptool, "eapol_m3_count", cJSON_CreateNumber(eapolm3count));
+	// Total EAPOL M4
+	cJSON_AddItemToObject(pcaptool, "eapol_m4_count", cJSON_CreateNumber(eapolm4count));
+	// Total EAPOL M4 (Zeroed)
+	cJSON_AddItemToObject(pcaptool, "eapol_m4_zeroed_count", cJSON_CreateNumber(eapolm4zeroedcount));
+	// Total EAPOL Pairs
+	cJSON_AddItemToObject(pcaptool, "eapol_mp_count", cJSON_CreateNumber(eapolmpcount));
+	// Total EAPOL from Zeroes PSK (Not converted)
+	cJSON_AddItemToObject(pcaptool, "zeroed_eapol_psk_count", cJSON_CreateNumber(zeroedeapolpskcount));
+	// Total EAPOL from Zeroes PMK (Not converted)
+	cJSON_AddItemToObject(pcaptool, "zeroed_eapol_pmk_count", cJSON_CreateNumber(zeroedeapolpmkcount));
+	// Total EAPOL Pairs (Best)
+	cJSON_AddItemToObject(pcaptool, "eapol_mp_bestcount", cJSON_CreateNumber(eapolmpbestcount));
+	// Total EAPOL Rogue Pairs (From Rogue AP)
+	cJSON_AddItemToObject(pcaptool, "eapol_apless_count", cJSON_CreateNumber(eapolaplesscount));
+	// Total EAPOL Written (RC Checked)
+	cJSON_AddItemToObject(pcaptool, "eapol_written_count", cJSON_CreateNumber(eapolwrittencount));
+	// Total EAPOL Written (RC Not Checked)
+	cJSON_AddItemToObject(pcaptool, "eapolnc_written_count", cJSON_CreateNumber(eapolncwrittencount));
+	// Total RSN PMKID (Best)
+	cJSON_AddItemToObject(pcaptool, "pmkid_best_count", cJSON_CreateNumber(pmkidbestcount));
+	// Total RSN PMKID (Rogue)
+	cJSON_AddItemToObject(pcaptool, "pmkid_rogue_count", cJSON_CreateNumber(pmkidroguecount));
+	// Total RSN PMKID Written
+	cJSON_AddItemToObject(pcaptool, "pmkid_written_count", cJSON_CreateNumber(pmkidwrittenhcount));
+	// Total RSN Client PMKID Written (Possible MESH or Repeater PMKIDs)
+	cJSON_AddItemToObject(pcaptool, "pmkid_client_written_count", cJSON_CreateNumber(pmkidclientwrittenhcount));
+	// Total Number of hashes written
+	int totalwritten = (eapolwrittencount + eapolncwrittencount + eapolwrittenhcpxcountdeprecated + eapolncwrittenhcpxcountdeprecated + eapolwrittenhcpcountdeprecated + eapolwrittenjcountdeprecated + pmkidwrittenhcount + pmkidwrittenjcountdeprecated + pmkidwrittencountdeprecated + eapmd5writtencount + eapmd5johnwrittencount + eapleapwrittencount + eapmschapv2writtencount + tacacspwrittencount);
+	cJSON_AddItemToObject(pcaptool, "total_written", cJSON_CreateNumber(totalwritten));
+	
+	tvmin = timestampmin / 1000000000;
+	strftime(timestringmin, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmin));
+	tvmax = timestampmax / 1000000000;
+	time_t timestamptotal = tvmax - tvmin;
+	strftime(timestringmax, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmax));
+
+	cJSON_AddItemToObject(pcaptool, "timestamp_minimum", cJSON_CreateString(timestringmin));
+	cJSON_AddItemToObject(pcaptool, "timestamp_maximum", cJSON_CreateString(timestringmax));
+	cJSON_AddItemToObject(pcaptool, "timestamp_total", cJSON_CreateNumber(timestamptotal));
+
+	cJSON_AddItemToObject(pcaptool, "22000_exported", cJSON_CreateNumber(pmkidfile));
+	cJSON_AddItemToObject(pcaptool, "22000client_exported", cJSON_CreateNumber(pmkidclientfile));
+	cJSON_AddItemToObject(pcaptool, "essid_exported", cJSON_CreateNumber(essidfile));
+	cJSON_AddItemToObject(pcaptool, "identity_exported", cJSON_CreateNumber(identityfile));
+	cJSON_AddItemToObject(pcaptool, "username_exported", cJSON_CreateNumber(usernamefile));
+	cJSON_AddItemToObject(pcaptool, "deviceinfo_exported", cJSON_CreateNumber(deviceinfofile));
+	cJSON_AddItemToObject(pcaptool, "pcapng_exported", cJSON_CreateNumber(pcapng_written));
+	cJSON_AddItemToObject(pcaptool, "files_compressed", cJSON_CreateNumber(data_compressed));
+
+	// add "pcaptool" tool to data.
+	cJSON_AddItemToObject(data, "pcaptool", pcaptool);
+	
+	
+	string = cJSON_PrintUnformatted(data);
+	cJSON_Delete(data);
+	if (string) 
+    {
+        printf("%s\n", string);
+        cJSON_free(string);
+    }
+}
+
 /*===========================================================================*/
-int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG)
+int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
 {
 	static int exitcode;
-	
-	
+
 	static char *pcapngoutname;
 	static char *pmkideapoloutname;
+	static char *pmkidclientoutname;
 	static char *usernameoutname;
 	static char *essidoutname;
 	static char *identityoutname;
 	static char *deviceinfooutname;
+	static char *tarfileoutname;
+	static char *gzfileoutname;
 
-	
 	static const char *pcapngsuffix = ".pcapng";
 	static const char *pmkideapolsuffix = ".22000";
+	static const char *pmkidclientsuffix = ".22000client";
 	static const char *essidsuffix = ".essid";
 	static const char *identitysuffix = ".identity";
 	static const char *usernamesuffix = ".username";
 	static const char *deviceinfosuffix = ".deviceinfo";
+	static const char *tarfilesuffix = ".tar.gz";
 
 	static char pcapngprefix[PATH_MAX];
 	static char pmkideapolprefix[PATH_MAX];
+	static char pmkidclientprefix[PATH_MAX];
 	static char essidprefix[PATH_MAX];
 	static char identityprefix[PATH_MAX];
 	static char usernameprefix[PATH_MAX];
 	static char deviceinfoprefix[PATH_MAX];
+	static char tarfileprefix[PATH_MAX];
 
 	struct timeval tv;
 	static struct stat statinfo;
 
-	
-
 	// Create fd in memory.
 	int fd = memfd_create("pcap_buffer", 0);
-	
-	if (fd != -1) {
+
+	if (fd != -1)
+	{
 		if (write(fd, pcap_buffer, len) == -1)
-        	error("write()");
-		
-		//printf("Wrote to file %d bytes.\n", len);
+			error("write()");
+
+		// printf("Wrote to file %d bytes.\n", len);
 		off_t location = lseek(fd, 0, SEEK_CUR);
-    	//printf( "Current: %ld\n", location);
-		location = lseek(fd, 0, SEEK_SET); //get back to the beginning... this took me so long to debug
-    	//printf( "New: %ld\n", location);
+		// printf( "Current: %ld\n", location);
+		location = lseek(fd, 0, SEEK_SET); // get back to the beginning... this took me so long to debug
+		// printf( "New: %ld\n", location);
 	}
-	
+
 	fd_pcap = fd;
 
 	exitcode = EXIT_SUCCESS;
@@ -6497,7 +5963,6 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 	eapoltimeoutvalue = EAPOLTIMEOUT;
 	ncvalue = NONCEERRORCORRECTION;
 	essidsvalue = ESSIDSMAX;
-
 
 	char *prefixoutname = prefixname;
 	if (strlen(prefixoutname) > PREFIX_BUFFER_MAX)
@@ -6535,6 +6000,10 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		strncat(pmkideapolprefix, pmkideapolsuffix, PREFIX_BUFFER_MAX);
 		pmkideapoloutname = pmkideapolprefix;
 
+		strncpy(pmkidclientprefix, prefixoutname, PREFIX_BUFFER_MAX);
+		strncat(pmkidclientprefix, pmkidclientsuffix, PREFIX_BUFFER_MAX);
+		pmkidclientoutname = pmkidclientprefix;
+
 		strncpy(essidprefix, prefixoutname, PREFIX_BUFFER_MAX);
 		strncat(essidprefix, essidsuffix, PREFIX_BUFFER_MAX);
 		essidoutname = essidprefix;
@@ -6551,15 +6020,19 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		strncat(deviceinfoprefix, deviceinfosuffix, PREFIX_BUFFER_MAX);
 		deviceinfooutname = deviceinfoprefix;
 
+		strncpy(tarfileprefix, prefixoutname, PREFIX_BUFFER_MAX);
+		strncat(tarfileprefix, tarfilesuffix, PREFIX_BUFFER_MAX);
+		gzfileoutname = tarfileprefix;
 	}
 
-
 	// Write data to pcapng.
-	if (writePcapNG) {
-		FILE* pcapfile;
+	if (writePcapNG)
+	{
+		FILE *pcapfile;
 		pcapfile = fopen(pcapngoutname, "w+");
 		fwrite(pcap_buffer, len, 1, pcapfile);
-		fclose(pcapfile); 
+		fclose(pcapfile);
+		pcapng_written = true;
 	}
 
 	// Open outputfiles
@@ -6568,6 +6041,14 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		if ((fh_pmkideapol = fopen(pmkideapoloutname, "a")) == NULL)
 		{
 			fprintf(stdout, "error opening file %s: %s\n", pmkideapoloutname, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+	}
+	if (pmkidclientoutname != NULL)
+	{
+		if ((fh_pmkideapolclient = fopen(pmkidclientoutname, "a")) == NULL)
+		{
+			fprintf(stdout, "error opening file %s: %s\n", pmkidclientoutname, strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6604,10 +6085,13 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		}
 	}
 
+	// process data
 	if (processcapfile("net-nomad", "memory") == false)
 		exitcode = EXIT_FAILURE;
 
+	///// PROCESSING COMPLETE, SHUTERDOWN ////
 
+	// Close files descriptors
 	if (fh_pmkideapol != NULL)
 		fclose(fh_pmkideapol);
 	if (fh_pmkideapolclient != NULL)
@@ -6623,23 +6107,48 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 	if (fd != NULL)
 		close(fd);
 
-	
+	// Remove empty files, but remember if we made them (for tar)
 
 	if (pmkideapoloutname != NULL)
 	{
 		if (stat(pmkideapoloutname, &statinfo) == 0)
 		{
 			if (statinfo.st_size == 0)
+			{
 				remove(pmkideapoloutname);
+			}
+			else
+			{
+				pmkidfile = true;
+			}
 		}
 	}
-	
+	if (pmkidclientoutname != NULL)
+	{
+		if (stat(pmkidclientoutname, &statinfo) == 0)
+		{
+			if (statinfo.st_size == 0)
+			{
+				remove(pmkidclientoutname);
+			}
+			else
+			{
+				pmkidclientfile = true;
+			}
+		}
+	}
 	if (essidoutname != NULL)
 	{
 		if (stat(essidoutname, &statinfo) == 0)
 		{
 			if (statinfo.st_size == 0)
+			{
 				remove(essidoutname);
+			}
+			else
+			{
+				essidfile = true;
+			}
 		}
 	}
 	if (identityoutname != NULL)
@@ -6647,7 +6156,13 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		if (stat(identityoutname, &statinfo) == 0)
 		{
 			if (statinfo.st_size == 0)
+			{
 				remove(identityoutname);
+			}
+			else
+			{
+				identityfile = true;
+			}
 		}
 	}
 	if (usernameoutname != NULL)
@@ -6655,7 +6170,13 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		if (stat(usernameoutname, &statinfo) == 0)
 		{
 			if (statinfo.st_size == 0)
+			{
 				remove(usernameoutname);
+			}
+			else
+			{
+				usernamefile = true;
+			}
 		}
 	}
 	if (deviceinfooutname != NULL)
@@ -6663,26 +6184,89 @@ int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePca
 		if (stat(deviceinfooutname, &statinfo) == 0)
 		{
 			if (statinfo.st_size == 0)
+			{
 				remove(deviceinfooutname);
+			}
+			else
+			{
+				deviceinfofile = true;
+			}
 		}
 	}
 
-	if ((gzipstat == 0) && (pcapngstat == 0) && (capstat == 0))
-		return exitcode;
+	// Tarfiles
 
-	fprintf(stdout, "\nsession summary\n---------------\n");
-	if (gzipstat > 0)
-		fprintf(stdout, "gzip compressed dump files............: %d\n", gzipstat);
-	if (pcapngstat > 0)
-		fprintf(stdout, "processed pcapng files................: %d\n", pcapngstat);
-	if (capstat > 0)
-		fprintf(stdout, "processed cap files...................: %d\n", capstat);
-	fprintf(stdout, "\n");
-	
+	if (tarFiles)
+	{
+		char** files;
+		files = (char**)malloc(sizeof(char**)*10);
+		int files_total = 0;
+
+
+		if (pmkidfile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(pmkideapoloutname) + 1 ) );
+			strcpy(files[files_total], pmkideapoloutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (pmkidclientfile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(pmkidclientoutname) + 1 ) );
+			strcpy(files[files_total], pmkidclientoutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (essidfile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(essidoutname) + 1 ) );
+			strcpy(files[files_total], essidoutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (identityfile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(identityoutname) + 1 ) );
+			strcpy(files[files_total], identityoutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (usernamefile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(usernameoutname) + 1 ) );
+			strcpy(files[files_total], usernameoutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (deviceinfofile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(deviceinfooutname) + 1 ) );
+			strcpy(files[files_total], deviceinfooutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (pcapng_written)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(pcapngoutname) + 1 ) );
+			strcpy(files[files_total], pcapngoutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+
+		write_archive(gzfileoutname, files, files_total);
+		data_compressed = true;
+		for (int i = 0; i <= files_total - 1; i++)
+		{
+			remove(files[i]);
+			free(files[i]);
+		}
+		free(files);
+	}
+
 	if (evpdeinitwpa() == false)
 		exit(EXIT_FAILURE);
 
+	send_lists();
 	return exitcode;
 }
 /*===========================================================================*/
-

@@ -6,13 +6,12 @@ Writes data in realtime to stdout in JSON format.
 
 When capture is complete writes relevant files to disk ready for hashcat.
 
-net-nomad-hcx is a controller program used to demonstrate the use-case.
-
+Easy to work with as a subprocess.
 
 ## Install
 
 Requires cJSON installed: https://github.com/DaveGamble/cJSON
-
+Requires libarchive (libarchive-dev)
 
 ```
 make
@@ -24,7 +23,7 @@ make
 make cleanall
 ```
 
-## Data Scheme
+## Data Format
 
 [Google Sheets](https://docs.google.com/spreadsheets/d/1_Ztu8rNvnV8Id_MLcIl8FbdCwIjK6nVBU_wC5mD-5xA/edit?usp=sharing)
 
