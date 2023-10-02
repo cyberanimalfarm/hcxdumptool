@@ -1,76 +1,28 @@
-PRODUCTION		:= 0
-PRODUCTION_VERSION	:= 6.3.1
-PRODUCTION_YEAR		:= 2023
 
-ifeq ($(PRODUCTION),1)
-VERSION_TAG		:= $(PRODUCTION_VERSION)
-else
-VERSION_TAG		:= $(shell git describe --tags || echo $(PRODUCTION_VERSION))
-endif
-VERSION_YEAR		:= $(shell echo $(PRODUCTION_YEAR))
+all: net-nomad-hcx clean
 
-PREFIX		?= /usr
-BINDIR		= $(DESTDIR)$(PREFIX)/bin
+net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
+	g++ -o net-nomad-hcx net-nomad-hcx.cpp -Llib -Iinclude -Ihcxpcapngtool/include/pcapngtool/ -lhcxdumptool -lhcxpcapngtool -lssl -lz -lbz2 -llzma -larchive -lcrypto -lz -lpcap -lcjson
 
-HOSTOS		:= $(shell uname -s)
+net-nomad-hcx.o: net-nomad-hcx.cpp
+	g++ -O -c net-nomad-hcx.cpp
 
-CC		?= gcc
-CFLAGS		?= -O3 -Wall -Wextra -Wpedantic
-CFLAGS		+= -std=gnu99
-#CFLAGS		+= -ggdb -fsanitize=address
-DEFS		= -DVERSION_TAG=\"$(VERSION_TAG)\" -DVERSION_YEAR=\"$(VERSION_YEAR)\"
-DEFS		+= -DSTATUSOUT -DNMEAOUT
+hcxdumptool.o: hcxdumptool.c include/hcxdumptool.h include/cJSON.h 
+	gcc -c -fPIC hcxdumptool.c -lcjson -Llib -Iinclude $(pkg-config --cflags libcjson)
 
-INSTALL		?= install
-INSTFLAGS	=
+libhcxdumptool.a: hcxdumptool.o
+	ar cr lib/libhcxdumptool.a hcxdumptool.o
 
-ifeq ($(HOSTOS), Linux)
-INSTFLAGS += -D
-endif
+hcxpcapngtool.o: hcxpcapngtool/hcxpcapngtool.c
+	gcc -c -fPIC hcxpcapngtool/hcxpcapngtool.c -Llib -L/usr/local/lib -I/usr/include -Ihcxpcapngtool/include/pcapngtool/ -Ihcxpcapngtool/include -I/usr/local/include -I/usr/local/include/cjson -lssl -lcrypto -lcjson -lz -lbz2 -llzma -larchive 
 
+libhcxpcapngtool.a: hcxpcapngtool.o
+	ar cr lib/libhcxpcapngtool.a hcxpcapngtool.o
 
-TOOLS=hcxdumptool
+libs: libhcxdumptool.a libhcxpcapngtool.a
 
-.PHONY: all build install clean uninstall
+cleanall:
+	rm -f net-nomad-hcx *.o lib/*.a *.gch
 
-all: build
-
-build: $(TOOLS)
-
-# $1: tool name
-define tool-build
-$(1)_src ?= $(1).c
-$(1)_libs ?=
-$(1)_cflags ?=
-
-$(1): $$($(1)_src)
-	$$(CC) $$(CFLAGS) $$($(1)_cflags) $$(CPPFLAGS) -o $$@ $$($(1)_src) $$(DEFS)
-
-.deps/$(1).d: $(1)
-
-.PHONY: $(1).install
-$(1).install: $(1)
-	$$(INSTALL) $$(INSTFLAGS) -m 0755 $(1) $$(BINDIR)/$(1)
-
-.PHONY: $(1).clean
-$(1).clean:
-	rm -f .deps/$(1).d
-	rm -f $(1)
-
-.PHONY: $(1).uninstall
-$(1).uninstall:
-	rm -rf $$(BINDIR)/$(1)
-
-endef
-
-$(foreach tool,$(TOOLS),$(eval $(call tool-build,$(tool))))
-
-install: $(patsubst %,%.install,$(TOOLS))
-
-clean: $(patsubst %,%.clean,$(TOOLS))
-	rm -rf .deps
-	rm -f *.o *~
-
-uninstall: $(patsubst %,%.uninstall,$(TOOLS))
-
--include .deps/*.d
+clean:
+	rm -f *.o *.gch

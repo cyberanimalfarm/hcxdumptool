@@ -1,1 +1,15 @@
 hcxdumptool
+hcxdumptool.so
+refs/*
+lib/*.a
+.vscode/*
+*.pcapng
+net-nomad-hcx
+*.22000
+*.22000client
+*.essid
+*.identity
+*.username
+*.deviceinfo
+*.tar
+*.tar.gz

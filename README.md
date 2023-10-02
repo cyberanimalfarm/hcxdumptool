@@ -1,348 +1,231 @@
-hcxdumptool
-==============
+# net-nomad-hcx
 
-Small tool to capture packets from wlan devices and to discover potential weak points within own WiFi networks by running layer 2 attacks against WPA protocol  
-(e.g.: PreSharedKey or PlainMasterKey is transmitted unencrypted by a CLIENT).
+A gutted (and combined) hcxdumptool & hcxpcapngtool v6.3.1 that builds into a static object (for including in your project).
 
+Writes data in realtime to stdout in JSON format.
 
-Brief description
---------------
+When capture is complete writes relevant files to disk ready for hashcat.
 
-Stand-alone binaries - designed to run on Arch Linux, but other Linux distributions should work, too.
+Easy to work with as a subprocess.
 
-Capture format pcapng is compatible to Wireshark and tshark.
+## Install
 
-Read this post: hcxtools - solution for capturing wlan traffic and conversion to hashcat formats (https://hashcat.net/forum/thread-6661.html)
+Requires cJSON installed: https://github.com/DaveGamble/cJSON
+Requires libarchive (libarchive-dev)
 
-Read this post: New attack on WPA/WPA2 using PMKID (https://hashcat.net/forum/thread-7717.html)
-
-Read this post: Hash mode 22000 explained (https://hashcat.net/forum/thread-10253.html)
-
-Read this wiki: https://hashcat.net/wiki/doku.php?id=cracking_wpawpa2
-
-Unsupported: Windows OS, macOS, Android, emulators or wrappers!
-
-
-What doesn't hcxdumptool do
---------------
-
-it does not crack WPA PSK related hashes (use hashat or JtR to recover the PSK)
-
-it does not crack WEP (use aircrack-ng instead)
-
-it does not crack WPS (use reaver or bully instead)
-
-it does not decrypt encrypted traffic (use Wireshark in parallel)
-
-it does not record entire traffic (use tshark or Wireshark in parallel)
-
-it does not perform Evil Twin attacks
-
-it is not a honey pot
-
-
-Detailed description
---------------
-
-| Tool           | Description                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| hcxdumptool    | Tool to run several tests against WPA PSK to determine if ACCESS POINTs or CLIENTs are vulnerable      |
-
-
-Work flow
---------------
-
-hcxdumptool -> hcxpcapngtool -> hcxhashtool (additional hcxpsktool/hcxeiutool) -> hashcat or JtR
-
-hcxdumptool: attack and capture everything (depending on options)
-
-hcxpcapngtool: convert everything
-
-hcxhashtool: filter hashes
-
-hcxpsktool: get weak PSK candidates
-
-hcxeiutool: calculate wordlists from ESSID
- 
-hashcat or JtR: get PSK from hash
-
-
-Get source
---------------
-```
-git clone https://github.com/ZerBea/hcxdumptool.git
-cd hcxdumptool
-```
-
-Solve dependencies 
--------------- 
-as mentioned in Requirements chapter
-
-
-Compile & install
---------------
 ```
 make
 ```
 
-install to `/usr/bin`:
-```
-make install (as super user)
-```
+## Clean Up
 
-or install to `/usr/local/bin`:
 ```
-make install PREFIX=/usr/local (as super user)
+make cleanall
 ```
 
-On headless opearation remove -DSTATUSOUT from Makefile before compiling! The entire status display will not be compiled. That saves CPU cycles and prevent ERRORs.
+## Data Format
 
+[Google Sheets](https://docs.google.com/spreadsheets/d/1_Ztu8rNvnV8Id_MLcIl8FbdCwIjK6nVBU_wC5mD-5xA/edit?usp=sharing)
 
-Or install via package manager
---------------
+## Hashcat 22000 Format
 
-### Arch Linux
-[Arch Linux](https://www.archlinux.org/) 
-`pacman -S hcxdumptool`
-
-### Arch Linux ARM
-[Arch Linux ARM ](https://archlinuxarm.org/) 
-`pacman -S hcxdumptool`
-
-### Black Arch
-[Black Arch](https://blackarch.org/) is an Arch Linux-based penetration testing distribution for penetration testers and security researchers  
-`pacman -S hcxdumptool`
-
-### Debian (e.g. Kali, Ubuntu) release requirements >= bookworm (testing/Debian 12)  
-To install use the following:  
-`apt-get install make gcc`
-
-
-Compile for Android
---------------
-
-Install [Android NDK](https://developer.android.com/ndk/downloads) on your system and add it to `PATH`:
+Example:
 ```
-$ ndk-build --version
-GNU Make 4.3
-Built for x86_64-pc-linux-gnu
-Copyright (C) 1988-2020 Free Software Foundation, Inc.
-License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
-This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law.
+WPA*02*1709ba709b92c3eb7b662036b02e843c*6c5940096fb6*64cc2edaeb52*6c686c64*ca37bb6be93179b0ce86e0f4e393d742fca6854ace6791f29a7d0c0ec1534086*0103007502010a00000000000000000001f09960e32863aa57ba250769b6e12d959a5a1f1cc8939d6bed4401a16092fa72000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001630140100000fac040100000fac040100000fac020000*00
 ```
 
-Run `ndk-build` - built executables for some architectures will be created inside `libs` directory:
+### Explanation:
 ```
-$ ndk-build
-[arm64-v8a] Compile        : hcxdumptool <= hcxdumptool.c
-[arm64-v8a] Executable     : hcxdumptool
-[arm64-v8a] Install        : hcxdumptool => libs/arm64-v8a/hcxdumptool
-[armeabi-v7a] Compile thumb  : hcxdumptool <= hcxdumptool.c
-[armeabi-v7a] Executable     : hcxdumptool
-[armeabi-v7a] Install        : hcxdumptool => libs/armeabi-v7a/hcxdumptool
-[x86] Compile        : hcxdumptool <= hcxdumptool.c
-[x86] Executable     : hcxdumptool
-[x86] Install        : hcxdumptool => libs/x86/hcxdumptool
-[x86_64] Compile        : hcxdumptool <= hcxdumptool.c
-[x86_64] Executable     : hcxdumptool
-[x86_64] Install        : hcxdumptool => libs/x86_64/hcxdumptool
+PMKID Version (01):
+WPA*01*PMKID*MAC_AP*MAC_CLIENT*ESSID***MESSAGEPAIR
+
+EAPOL Version (02):
+WPA*02*MIC*MAC_AP*MAC_CLIENT*ESSID*NONCE_AP*EAPOL_CLIENT*MESSAGEPAIR
 ```
-Copy it to your phone and enjoy.
+
+### MESSAGE PAIR Values:
+```
+Byte:    | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+Field:   | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+Legend:
+2,1,0:
+000 = M1+M2, EAPOL from M2 (challenge)
+001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+010 = M2+M3, EAPOL from M2 (authorized)
+011 = M2+M3, EAPOL from M3 (authorized) - unused
+100 = M3+M4, EAPOL from M3 (authorized) - unused
+101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+3: reserved
+4: ap-less attack (set to 1) - no nonce-error-corrections necessary
+5: LE router detected (set to 1) - nonce-error-corrections only for LE necessary
+6: BE router detected (set to 1) - nonce-error-corrections only for BE necessary
+7: not replaycount checked (set to 1) - replaycount not checked, nonce-error-corrections definitely necessary
+```
+
+Useful bash to pull the hashes you want out:
+
+### Filter by PMKID:
+```
+grep 'WPA\*01' hash.hc22000 > pmkid.hc22000
+```
+
+### Filter by EAPOL:
+```
+grep 'WPA\*02' hash.hc22000 > pmkid.hc22000
+```
+
+### Filter by Authorized (The PSK provided will be the correct one for the network):
+```
+grep '2$' hash.hc22000
+```
+
+### Filter by Challenge (The PSK provided COULD be incorrect, the network has not validated it yet):
+```
+grep '0$' hash.hc22000
+```
+
+### Filter by MAC:
+```
+grep '\*112233445566\*'  hash.hc22000 > mac.hc22000
+```
+
+### More:
+```
+#001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "1$"
+
+#010 = M2+M3, EAPOL from M2 (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "2$"
+
+#101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "5$"
+
+# or, if you don't want NC to be in use:
+
+#001 = M1+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "01$"
+
+#010 = M2+M3, EAPOL from M2 (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "02$"
+
+#101 = M3+M4, EAPOL from M4 if not zeroed (authorized)
+cat hashfile.hc22000 | grep "WPA.02" | grep "05$"
+```
 
 
-Requirements
+## Important Notes
+
+```
+Every converted hash should be a valid hash (depending on the quality of the dump tool handling possible packet loss and the conversion tool regarding EAPOL TIME OUT, detecting NC, evaluation RC). The PSK from this hash is recoverable, but it may not belong to your target network if it is converted from M1M2.
+
+Overview of valid MESSAGE PAIRs belonging to the same AUTHENTICATION SEQUENCE:
+M1M2 = challenge and RC on M1 and M2 is the same
+M2M3 = authenticated (by AP) and RC of M3 = RC M2 +1
+M3M4 = authenticated (by CLIENT) and RC on M3 and M4 are the same
+M1M4 = authenticated (by CLIENT) and RC of M1 = RC M4 +1
+
+Example of invalid MESSAGE PAIRs (NC not possible = PSK not recoverable):
+M1/RC1 M2/RC9
+M2/RC3 M3/RC14
+
+Example of invalid MESSAGE PAIRs that can be converted to valid MESSAGE PAIRS (NC possible = PSK recoverable) by hashcat default NC option (8):
+M1/RC1 M2/RC3
+M2/RC3 M3/RC5
+
+It is not mandatory that they belong to the same AUTHENTICATION sequence, as long as NC is possible.
+
+State of the art attack tools should detect a packet loss and request the packet again. Also they shouldn't run excessive deauthentications/disassociations which cause an AP to reset its EAPOL timers, counters and ANONCE or to start a new AUTHENTICATION sequence.
+State of the art conversion tools should detect if NC is possible or not.
+
+BTW3 (experienced users):
+The most important MESSAGE PAIR is M1M2ROGUE coming from hcxdumptool/hcxlabtool attack against a weak CLIENT. In combination with hcxpcapngtool --all and -E it will give useful information about the wpa_supplicant.conf entries of the CLIENT.
+
+Legend:
+RC = replaycount
+NC = nonce error correction on BE and LE routers
+BE = big endian
+LE = low endian
+M1 = EAPOL message 1 (AP) of 4way handshake
+M2 = EAPOL message 2 (CLIENT) of 4way handshake
+M3 = EAPOL message 3 (AP) of 4way handshake
+M4 = EAPOL message 4 (CLIENT) of 4way handshake (useless if SNONCE is zeroed)
+ROGUE = coming from hcxdumptool/hcxlabtool attack
+PSK = pre-shared key (password of the NETWORK)
+```
+
+## Details
 --------------
 
-* knowledge of radio technology
-* knowledge of electromagnetic-wave engineering
-* detailed knowledge of 802.11 protocol
-* detailed knowledge of key derivation functions
-* detailed knowledge of Linux (strict)
-* detailed knowledge of filter procedures (Berkeley Packet Filter, capture filter, display filter)
-* operating system: Linux (recommended: kernel >= 6.4, mandatory: kernel >= 5.10)
-* recommended: Arch Linux on notebooks and desktop systems, Arch Linux Arm on Raspberry Pi >= ARMv7 systems, Raspbian OS Lite or Debian on Raspberry Pi ARMv6 systems 
-* chipset must be able to run in monitor mode. Recommended: MediaTek chipsets (due to active monitor mode capabilities)
-* driver must (mandatory) support monitor and full frame injection mode
-* gcc >= 13 recommended (deprecated versions are not supported: https://gcc.gnu.org/)
-* Raspberry Pi A, B, A+, B+, Zero (WH). (Recommended: Zero (WH) or A+, because of a very low power consumption), but notebooks and desktops will work, too.
-* GPIO hardware mod recommended (push button and LED) on Raspberry Pi
-* to allow 5/6GHz packet injection, it is mandatory to uncomment a regulatory domain that support this: /etc/conf.d/wireless-regdom 
+Because people still want to use aircrack-ng for some reason, here's a post written by the HCX author:
 
-If you decide to compile latest git head, make sure that your distribution is updated to latest version.
+```
+There is a huge difference between hcxdumptool/hcxtools and other WiFi attack tools. Many options may look similar, but the engine behind is completely different.
 
-Important notice: running Debian on arm it is mandatory to add "iomem=relaxed" to cmdline.txt to allow io memory mapping
+hcxdumptool is interacting with the target. If the target is an AP that include all CLIENTs of this NETWORK. As a cause if this, the DEAUTHENTICATION process is not static. hcxdumptool use more than one DEAUTHENTICATION code and it switches from DEAUTHENTICATION to DISASSOCIATION depending on the state of the target. This goes so far that it use different reason codes for the AP and the CLIENTs. You can override this as you already mentioned (--reason_code).
 
+But let me start with the implemented attack vectors that run simultaneously:
 
-Adapters
---------------
+BEACON spoofing
+PROBERESPONSE spoofing
+PROBEREQUEST (to get additional information that is not present in a BEACON)
+AUTHENTICATION attack (to prepare one of the following attacks)
+ASSOCIATION attack (e.g. to retrieve a PMKID)
+REASSOCIATION attack (e.g. to retrieve a PMKID or to downgrade an AUTHENTICATION state)
+M2 attack (to retrieve CLIENT NONCE and MIC)
+M4 attack (to make sure we got an entire valid handshake or to prevent connections)
+PS-POLL (to downgrade an AUTHENTICATION state)
+EAP attack (to retrieve an EAP-ID)
+DEAUTHENTICATON / DISASSOCIATION attack
 
-Driver must support (mandatory) monitor mode and full packet injection
+On some attacks it make sense to disable them by a single command (e.g. --disable_deauthentication).
 
-WIRELESS EXTENSIONS are deprecated and no longer supported
+Other attacks are grouped and it only make sense to deactivate the entire group (--disable_client_attacks).
 
-Get information about VENDOR, model, chipset and driver here: https://wikidevi.wi-cat.ru/
+Or if an AP is able to detect attacks against it, it may be useful to run attacks only against the CLIENTs (--disable_ap_attacks).
 
-Manufacturers do change chipsets without changing model numbers. Sometimes they add (v)ersion or (rev)vision.
+The same applies if the CLIENT is in the range of hcxdumptool but the AP not.
 
-Preferred chipsets MediaTek due to active monitor mode feature
+The first step is always to run a rca scan, to find out if the target is in range and to get some additional information, eg. AKM (authentication key management) of the target
 
-Always verify the actual chipset with 'lsusb' and/or 'lspci'!
+Requesting the AKM of a CLIENT is not necessary, because it always announce it in its ASSOCIATIONREQUEST.
 
-No support for a third party driver which is not part of the official Linux kernel (https://www.kernel.org/) <br /> Report related issues to the site, from which you downloaded the driver
+Take a look at the RSN IE_TAG field (by Wireshark or by tshark)
 
-No support for a driver which doesn't support monitor mode and full frame injection natively <br /> If you need these features, do a request on www.kernel.org
+Code:
+RSN Capabilities: 0x00c0
+    .... .... .... ...0 = RSN Pre-Auth capabilities: Transmitter does not support pre-authentication
+    .... .... .... ..0. = RSN No Pairwise capabilities: Transmitter can support WEP default key 0 simultaneously with Pairwise key
+    .... .... .... 00.. = RSN PTKSA Replay Counter capabilities: 1 replay counter per PTKSA/GTKSA/STAKeySA (0x0)
+    .... .... ..00 .... = RSN GTKSA Replay Counter capabilities: 1 replay counter per PTKSA/GTKSA/STAKeySA (0x0)
+    .... .... .1.. .... = Management Frame Protection Required: True
+    .... .... 1... .... = Management Frame Protection Capable: True
+    .... ...0 .... .... = Joint Multi-band RSNA: False
+    .... ..0. .... .... = PeerKey Enabled: False
+    ..0. .... .... .... = Extended Key ID for Individually Addressed Frames: Not supported
 
-No support for prism devices.
+Management frame protection is enabled and it is absolutely useless to inject DEAUTHENTICATION frames or DISASSOCIATION frames. As long as the target is not downgraded, it will only jam the channel. To avoid this, use e.g. --disable_deauthentication.
 
-Not recommended WiFi chipsets:
+Please note:
 
-* Broadcom (neither monitor mode nor frame injection by official Linux kernel)
+The BEACON IE_TAGs give an overview of the capabilities of an AP.
+The PROBERESPONSE IE_TAGs show all supported capabilities.
+But only the ASSOCIATIONREQUEST/REASSOCIATIONREQUEST IE_TAGs give an information about the capabilities that are in use on the following connection (that include the ESSID).
+The IE_TAGs of this frames may differ and it is mandatory to get the last one (instead of only the first one in the BEACON).
 
-* Qualcomm (no frame injection by official Linux kernel)
+Ignoring this kind of frames can lead to an issue like this one:
+https://github.com/kismetwireless/kismet/issues/419
 
-* Intel (frame injection)
+Luckily there are some frames that can't be protected (ASSOCIATIONREQUEST, REASSOCIATIONREQUEST, PS POLL). Now hcxdumptool try to downgrade the AUTHENTICATION state of the target (using this CLASS 3 or CLASS 4 frames) to a state that will allow to throw off the CLIENTs. If successful, mostly the AP will do this job for us (you noticed that the CLIENTs are disconnected even though you have disabled DEAUTHENTICATIONs). That include a WPA3 connection, too. Now, if CLIENT attacks are not disabled, the CLIENT first try to connect to hcxdumptool and we can retrieve its M2. Than the CLIENT will try to connect to its AP and we can get M1M2M3M4. For both cases there is an option to disable this behavior.
 
-more information about possible issues or limitations:
+Some of the attack vectors are extremely aggressive (e.g. M4 attack), because they are able to prevent that the CLIENT can reconnect. This attack vector is also usable to fool a user, because (depending on the reason code) he have to type his PSK again, and again, and again... (for all eternity or until --stop_client_m2_attacks= is reached).
+The M2 attack vector e.g. is able to retrieve more than one PSK from the CLIENT.
+The EAP attack vector is able to retrieve an EAP-ID from the target (that can be the IMEI of a mobile phone).
 
-https://bugzilla.kernel.org
+BPF code is really powerful and it allow you to control hcxdumptool behavior completely. It allow to attack/protect an entire NETWORK (addr3), to attack frames coming from a target (addr2), to attack frames going to a target (addr1) or any combination of this. Also it allow to attack/protect all kinds of frames. A combination of targets and frames is possible. This will act as a scalpel. Additional it is possible to use all options, the soft filter and BPC in combination.
 
-https://wireless.wiki.kernel.org/en/users/Drivers/ath10k
+By default, most of the options are activated. Only with activated options hcxdumptool is able to interact with the target and to choose that attack vector which is the best to retrieve the hash in a short time. How long it take or when a CLIENT is allowed to connect again , can be controlled via options, too: --stop_ap_attacks= or --stop_client_m2_attacks= or a combination of that.
 
-Antennas
---------------
+If you choose --disable_deauthentication only, all remaining attack vectors are still active (and they are much more powerful than a stupid deauthentication attack). A connected CLIENT will be downgraded, BEACONs and PROBERESONSES are spoofed and hcxdumptool respond to all CLIENTs. As a result to this response every CLIENT will leave its associated AP and connect to hcxdumptool.
 
-The best high frequency amplifier is a good antenna!
-
-It is much better to achieve gain using a good antenna instead of increasing transmitter power.
-
-| VENDOR MODEL           | TYPE            |
-| ---------------------- | --------------- |
-| LOGILINK WL0097        | grid parabolic  |
-| TP-LINK TL-ANT2414 A/B | panel           |
-| LevelOne WAN-1112      | panel           |
-| DELOCK 88806           | panel           |
-| TP-LINK TL-ANT2409 A   | panel           |
-
-
-GPS devices (NMEA 0183 protocol)
---------------
-
-| VENDOR MODEL                | TYPE            |
-| --------------------------- | --------------- |
-| NAVILOCK NL-701US           | USB             |
-| JENTRO BT-GPS-8 activepilot | BLUETOOTH       |
-
-
-Useful scripts
---------------
-
-| Script       | Description                                              |
-| ------------ | -------------------------------------------------------- |
-| bash_profile | Autostart for Raspberry Pi (copy to /root/.bash_profile) |
-| pireadcard   | Back up a Pi SD card                                     |
-| piwritecard  | Restore a Pi SD card                                     |
-| stopnm       | Example script to start NetworkManager                   |
-| startnm      | Example script to stop NetworkManager                    |
-
-
-Hardware mod - see docs gpiowait.odg (hcxdumptool)
---------------
-
-LED flashes every 10 seconds if everything is fine and signals are received
-
-Press push button at least > 10 seconds until LED turns on (also LED turns on if hcxdumptool terminates)
-
-Raspberry Pi turned off and can be disconnected from power supply
-
-
-Hardware mod - see docs gpiowait.odg
---------------
-
-Press push button at least 10 seconds and Raspberry Pi turned off safely and can be disconnected from power supply
-
-
-Procedure
---------------
-
-first run hcxdumptool -L to get information about suitable interfaces
-
-run hcxdumptool [-i \<interface\>] [--rcascan=p] to retrieve information about access points
-
-
-pcapng option codes (Section Header Block)
---------------
-
-ENTERPRISE NUMBER        0x2a, 0xce, 0x46, 0xa1
-
-MAGIC NUMBER             0x2a, 0xce, 0x46, 0xa1, 0x79, 0xa0, 0x72, 0x33,
-
-                         0x83, 0x37, 0x27, 0xab, 0x59, 0x33, 0xb3, 0x62,
-
-                         0x45, 0x37, 0x11, 0x47, 0xa7, 0xcf, 0x32, 0x7f,
-
-                         0x8d, 0x69, 0x80, 0xc0, 0x89, 0x5e, 0x5e, 0x98
-
-OPTIONCODE_MACMYORIG     0xf29a (6 byte)
-
-OPTIONCODE_MACMYAP       0xf29b (6 byte)
-
-OPTIONCODE_RC            0xf29c (8 byte)
-
-OPTIONCODE_ANONCE        0xf29d (32 byte)
-
-OPTIONCODE_MACMYSTA      0xf29e (6 byte)
-
-OPTIONCODE_SNONCE        0xf29f (32 byte)
-
-OPTIONCODE_WEAKCANDIDATE 0xf2a0 (64 byte) == 63 characters + zero
-
-OPTIONCODE_GPS           0xf2a1 (max 128 byte)
-
-
-Warning
---------------
-
-hcxdumptool is designed to be an analysis tool. 
-
-It should only be used in a 100% controlled environment(!).
-
-If you can't control the environment it is absolutely mandatory to set the BPF.
-
-Everything is requested/stored by default and unwanted information must be filtered out by option/filter or later on (offline)! 
-
-You must use hcxdumptool only on networks you have permission to do this and if you know what you are doing, because:
-
-* hcxdumptool is able to prevent complete wlan traffic
-  (depend on selected options)
-
-* hcxdumptool is able to capture PMKIDs from access points (only one single PMKID from an access point required)
-  (use hcxpcapngtool to convert them to a format hashcat and/Or JtR understand)
-
-* hcxdumptool is able to capture handshakes from not connected clients (only one single M2 from the client is required)
-  (use hcxpcapngtool to convert them to a format hashcat and/Or JtR understand)
-
-* hcxdumptool is able to capture handshakes from 5/6GHz clients on 2.4GHz (only one single M2 from the client is required)
-  (use hcxpcapngtool to to a format hashcat and/Or JtR understand)
-
-* hcxdumptool is able to capture passwords from the wlan traffic
-  (use hcxpcapngtool -R to save them to file, or together with networknames [-E])
-
-* hcxdumptool is able to request and capture extended EAPOL (RADIUS, GSM-SIM, WPS)
-  (hcxpcapngtool will show you information about them)
-
-* hcxdumptool is able to capture identities from the wlan traffic
-  (for example: request IMSI numbers from mobile phones - use hcxpcapngtool -I to save them to file)
-
-* hcxdumptool is able to capture usernames from the wlan traffic
-  (for example: user name of a server authentication - use hcxpcapngtool -U to save them to file)
-
-* Do not use a logical interface and leave the physical interface in managed mode
-
-* Do not use hcxdumptool in combination with aircrack-ng, reaver, bully or other tools which take access to the interface
-
-* Stop all services which take access to the physical interface (NetworkManager, wpa_supplicant,...)
-
-* Do not use tools like macchanger, as they are useless, because hcxdumptool uses its own random mac address space
-
-* Do not merge (pcapng) dumpfiles because that destroys custom block hash assignments
+```

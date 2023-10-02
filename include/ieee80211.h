@@ -410,4 +410,3 @@ static const int vendorclientrg[] =
 };
 #define VENDORCLIENTRG_SIZE sizeof(vendorclientrg)
 /*===========================================================================*/
-
