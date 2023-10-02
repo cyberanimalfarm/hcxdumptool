@@ -80,7 +80,6 @@ int main(int argc, char **argv) {
     // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
     // PrefixName should probably have the timestamp appended...
     int pcap_result = pcapngtool(target_mac, p_buffer, p_buffer_size, false, true);
-
-
+    
     return 0;
 }
