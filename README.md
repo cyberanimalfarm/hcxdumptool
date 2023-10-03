@@ -8,33 +8,156 @@ When capture is complete writes relevant files to disk ready for hashcat.
 
 Easy to work with as a subprocess.
 
-## Install
 
-To build you will need:
+## Usage + Output
 
-cJSON (https://github.com/DaveGamble/cJSON) Built statically (-DBUILD_SHARED_LIBS=Off flag for cmake)
-
-And:
+```bash
+usage: ./net-nomad-hcx <interface> <target_mac> [channels_to_scan]
+   ex: ./net-nomad-hcx wlan1 11:22:33:44:55:66 1a,6a,11a
+        o Default channels: 1a,6a,11a
+        o Unsupported channels will be ignored.
+        o Important notice: channel numbers are not unique and
+          it is mandatory to add band information to the channel number (e.g. 12a)
+              band a: NL80211_BAND_2GHZ
+              band b: NL80211_BAND_5GHZ
+              band c: NL80211_BAND_6GHZ
+              band d: NL80211_BAND_60GHZ
 
 ```
-sudo apt install -y libpcap-dev libcrypto-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev
+
+Output will be a "waterfall" of individual json lines, seperated by \n.
+
+To end collection you send a SIGINT (CTRL+C). This will automatically pass the collected data to the pcaptool to produce the output files.
+
+Example output:
+
+```json
+{"dumptool":{"aplist":[{"tsakt":1696300478,"tshold1":1696300478,"tsauth":1696300472,"count":32,"macap":[116,172,185,239,146,147],"macclient":[255,255,255,255,255,255],"status":6}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696300479,"tshold1":1696300478,"tsauth":1696300478,"count":13,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696300480,"tshold1":1696300478,"tsauth":1696300478,"count":3,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696300481,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696300482,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696300483,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
+^C 
+{"pcaptool":{"interface_id":1,"raw_packet_count":48,"skipped_packet_count":0,"fcs_frame_count":48,"band24_count":48,"band5_count":0,"band6_count":0,"wds_count":0,"device_info_count":0,"essid_count":6,"beacon_count":1,"beacon_count_24":1,"beacon_count_5":0,"probe_request_undirected_count":5,"probe_request_directed_count":0,"probe_response_count":1,"deauthentication_count":0,"disassociation_count":0,"authentication_count":1,"auth_open_system_count":1,"auth_shared_key_count":0,"association_request_count":0,"username_count":0,"identity_count":0,"eapol_m1_count":40,"eapol_m2_count":0,"eapol_m3_count":0,"eapol_m4_count":0,"eapol_m4_zeroed_count":0,"eapol_mp_count":0,"zeroed_eapol_psk_count":0,"zeroed_eapol_pmk_count":0,"eapol_mp_bestcount":0,"eapol_apless_count":0,"eapol_written_count":0,"eapolnc_written_count":0,"pmkid_best_count":0,"pmkid_rogue_count":0,"pmkid_written_count":0,"pmkid_client_written_count":0,"total_written":0,"timestamp_minimum":"10.02.2023 22:34:38","timestamp_maximum":"10.02.2023 22:34:43","timestamp_total":5,"22000_exported":0,"22000client_exported":0,"essid_exported":1,"identity_exported":0,"username_exported":0,"deviceinfo_exported":0,"pcapng_exported":0,"files_compressed":1}}
+```
+
+Errors will also be in JSON format:
+
+```
+sudo ./net-nomad-hcx wlan1 74acb9ef9293 6a # wlan1 interface doesn't exist.
+{"ERROR":{"message":"Could not open wlan1 - wlan1: No such device exists (SIOCGIFHWADDR: No such device)","fatal":true}}
+{"ERROR":{"message":"failed to arm interface","fatal":true}}
+{"ERROR":{"message":"Incorrect Magic","fatal":true}}
+```
+
+You can see what each key means and how the values are represented here:
+
+[Google Sheets](https://docs.google.com/spreadsheets/d/1_Ztu8rNvnV8Id_MLcIl8FbdCwIjK6nVBU_wC5mD-5xA/edit?usp=sharing)
+
+## Build
+
+#####Depends:
+```git 
+build-essential 
+zlib1g-dev 
+checkinstall 
+libpcap-dev 
+libssl-dev 
+libarchive-dev 
+libbz2-dev 
+liblzma-dev 
+cmake
+cJSON (https://github.com/DaveGamble/cJSON) Built statically (-DBUILD_SHARED_LIBS=Off flag for cmake)
+openssl 3+
 ```
 
 And maybe some other shit I'm forgetting about?
 
-```
+### Normal Build Instructions: (if you already have openssl 3+)
+
+Tested on Ubunutu 22.04
+
+Instructions:
+```bash
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
+# Build cJSON
+cd
+git clone https://github.com/DaveGamble/cJSON
+cd cJSON
+mkdir build; cd build
+cmake .. -DBUILD_SHARED_LIBS=Off
 make
+sudo make install
+make
+
+# Build net-nomad-hcx
+git clone <this repo>
+cd net-nomad-hcx
+make
+cp net-nomad-hcx /usr/local/bin # this could be in the Makefile but whatever.
 ```
 
-## Clean Everything (for rebuild)
+### RaspberryPi
+
+From a completely fresh Raspberry Pi OS Bullseye Lite you need to update OpenSSL, build/install cJSON, and build net-nomad-hcx.
+
+Tested on both Raspios Bullseye Lite 32 and 64bit.
+
+Instructions:
+```bash
+# Install deps
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
+
+# Install new openssl
+export VER=3.1.3 ##This was the latest stable at the time of writing, as far as I know anything 3+ should be good. Ref: https://www.openssl.org/source/
+cd /usr/local/src/
+sudo wget https://www.openssl.org/source/openssl-$VER.tar.gz 
+sudo tar -xf openssl-$VER.tar.gz
+cd openssl-$VER/
+
+# Determine GCC bitness. Basically the Kernel will likely be 64 bit, but userspace could be 32 or 64.
+realpath $(which gcc)
+
+# if aarch64 in filename:
+sudo ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
+
+# otherwise:
+sudo ./config linux-armv4 --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
+
+sudo make # This will take a really long time. Like go to the gym and come back long.
+sudo make install # This will take not as long but still a few minutes. Go take your post-gym shower.
+sudo bash -c "echo /usr/local/ssl/lib > /etc/ld.so.conf.d/openssl-$VER.conf"
+sudo ldconfig -v
+sudo mv /usr/bin/openssl /usr/bin/openssl.bak
+sudo mv /usr/bin/c_rehash /usr/bin/c_rehash.bak
+echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/local/ssl/bin"' | sudo tee -a /etc/environment
+source /etc/environment
+echo $PATH
+openssl version | grep $VER
+
+# Build cJSON
+cd
+git clone <this repo>
+git clone https://github.com/DaveGamble/cJSON
+cd cJSON
+mkdir build; cd build
+cmake .. -DBUILD_SHARED_LIBS=Off
+make
+sudo make install
+
+# Build net-nomad-hcx
+git clone <this repo>
+cd net-nomad-hcx
+make
+cp net-nomad-hcx /usr/local/bin
+```
+
+### Clean Everything (for rebuild)
 
 ```
 make cleanall
 ```
-
-## Data Format
-
-[Google Sheets](https://docs.google.com/spreadsheets/d/1_Ztu8rNvnV8Id_MLcIl8FbdCwIjK6nVBU_wC5mD-5xA/edit?usp=sharing)
 
 ## Hashcat 22000 Format
 
