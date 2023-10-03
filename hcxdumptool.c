@@ -3935,7 +3935,7 @@ static int fgetline(FILE *inputstream, size_t size, char *buffer)
 /*===========================================================================*/
 
 bool generate_filter(char *dev, char *addr)
-{ // THIS REPLACES THE read_bpf FUNCTION SO WE CAN ACTUALLY GENERATE OUR OWN FILTERS, WHO WOULDA THOUGHT?
+{
 
 	pcap_t *handle;
 	char error_buffer[PCAP_ERRBUF_SIZE];
@@ -3943,6 +3943,8 @@ bool generate_filter(char *dev, char *addr)
 	static struct sock_filter *bpfptr;
 
 	char filter_exp[125];
+	
+	// TODO: Handle many interfaces all at once.
 	snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
 
 	bpf_u_int32 subnet_mask, ip;
@@ -3958,14 +3960,14 @@ bool generate_filter(char *dev, char *addr)
 		static char* error[300];
 		snprintf(error, 299, "Could not open %s - %s", dev, error_buffer);
 		printError(error, 1);
-		return 1;
+		exit(EXIT_FAILURE);
 	}
 	if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1)
 	{
 		static char* error[300];
 		snprintf(error, 299,"Bad filter - %s", pcap_geterr(handle));
 		printError(error, 1);
-		return 1;
+		exit(EXIT_FAILURE);
 	}
 
 	struct bpf_insn *insn;
@@ -4184,7 +4186,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	{
 		errorcount++;
 		printError("failed to generate BPF", 1);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// Grab channel from arg
@@ -4330,7 +4332,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	tspecifo.tv_nsec = 0;
 	if (bpf.len == 0) {
 		printError("BPF Error.", 1);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	nanosleep(&tspecifo, &tspeciforem);
 

@@ -4692,7 +4692,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (fdsize < 0)
 	{
 		pcapreaderrors++;
-		printError("failed to get file size", 2);
+		printError("failed to get file size", 0);
 		return;
 	}
 
@@ -4700,7 +4700,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (aktseek < 0)
 	{
 		pcapreaderrors++;
-		printError("failed to set file pointer", 1);
+		printError("failed to set file pointer", 0);
 		return;
 	}
 
@@ -4790,13 +4790,13 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (pcapngshb->major_version != PCAPNG_MAJOR_VER)
 			{
 				pcapreaderrors++;
-				printError("unsupported major pcapng version", 1);
+				printError("unsupported major pcapng version", 0);
 				break;
 			}
 			if (pcapngshb->minor_version != PCAPNG_MINOR_VER)
 			{
 				pcapreaderrors++;
-				printError("unsupported minor pcapng version", 1);
+				printError("unsupported minor pcapng version", 0);
 				break;
 			}
 			if (pcapngoptionwalk(blocktype, pcapngshb->data, blocklen - SHB_SIZE) != 0)
@@ -4989,7 +4989,7 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 	magicnumber = getmagicnumber(fd_pcap);
 	if (magicnumber == 0)
 	{
-		printError("Inccorrect Magic", 1);
+		printError("Incorrect PCAP Magic - exiting", 1);
 		exit(EXIT_FAILURE);
 	}
 	resseek = lseek(fd_pcap, 0L, SEEK_SET);

@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
     char* channel_list;
 
     // Args
+    // TODO: Eventually I need to parse args correctly.
 
     switch (argc) {
         case 3:
