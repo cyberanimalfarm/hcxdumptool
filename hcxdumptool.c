@@ -374,49 +374,7 @@ static char rtb[RTD_LEN] = {0};
 
 /*---------------------------------------------------------------------------*/
 
-static inline void send_lists(void) {
-	cJSON *data = cJSON_CreateObject();
-	cJSON *dumptool = cJSON_CreateObject();
-	cJSON *all_aps = cJSON_CreateArray();
-	cJSON *all_clients = cJSON_CreateArray();
-	char *string = NULL;
-	/*
-	if (system("clear") != 0)
-		errorcount++;
-	*/
 
-	for (int i = 0; i < 10; i++)
-	{
-		if ((aplist + i)->tsakt == 0)
-			break; // No more APs
-
-		//cJSON *ap;
-		cJSON *ap = aplist_jsonify(aplist + i);
-		cJSON_AddItemToArray(all_aps, ap);
-	}
-	cJSON_AddItemToObject(dumptool, "aplist", all_aps);
-	
-	for (int i = 0; i < 10; i++)
-	{
-		if ((clientlist + i)->tsakt == 0)
-			break; // No more Clients
-
-		//cJSON *client;
-		cJSON *client = clientlist_jsonify(clientlist + i);
-		cJSON_AddItemToArray(all_clients, client);
-	}
-	cJSON_AddItemToObject(dumptool, "clientlist", all_clients);
-
-	cJSON_AddItemToObject(data, "dumptool", dumptool);
-
-	string = cJSON_PrintUnformatted(data);
-	cJSON_Delete(data);
-	if (string) 
-    {
-        printf("%s\n", string);
-        cJSON_free(string);
-    }
-}
 
 /*===========================================================================*/
 /* frequency handling */
@@ -566,7 +524,6 @@ static inline void writeepbm1(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
-	//printf("Writing EPBM1\n");
 	if (extend_and_copy_pcap(&epbown, epblen) != epblen)
 		errorcount++;
 	/* if (write(fd_pcapng, &epbown, epblen) != epblen)
@@ -598,7 +555,6 @@ static inline void writeepb(void)
 	epblen += TOTAL_SIZE;
 	epbhdr->total_length = epblen;
 	totallength->total_length = epblen;
-	//printf("Writing EPB\n");
 	if (extend_and_copy_pcap(&epb, epblen) != epblen)
 		errorcount++;
 	/* if (write(fd_pcapng, &epb, epblen) != epblen)
@@ -638,15 +594,9 @@ static bool writeshb(void)
 	shblen += TOTAL_SIZE;
 	shbhdr->total_length = shblen;
 	totallength->total_length = shblen;
-	//printf("Writing SHB\n");
 	if (extend_and_copy_pcap(&shb, shblen) != shblen) {
-		printf("Failed. Should have copied: %d\n", shblen);
 		return false;
 	}
-	/* if (write(fd_pcapng, &shb, shblen) != shblen) {
-		printf("Write Failed: SHB\n");
-		return false;
-	} */
 	wshbcount++;
 	return true;
 }
@@ -675,13 +625,9 @@ static bool writeidb(void)
 	idblen += TOTAL_SIZE;
 	idbhdr->total_length = idblen;
 	totallength->total_length = idblen;
-	//printf("Writing IDB\n");
 	if (extend_and_copy_pcap(&idb, idblen) != idblen) {
-		printf("Failed. Should have copied: %d\n", idblen);
 		return false;
 	}
-	/* if (write(fd_pcapng, &idb, idblen) != idblen)
-		return false; */
 	widbcount++;
 	return true;
 }
@@ -716,57 +662,14 @@ static bool writecb(void)
 	cblen += TOTAL_SIZE;
 	cbhdr->total_length = cblen;
 	totallength->total_length = cblen;
-	//printf("Writing CB\n");
 	if (extend_and_copy_pcap(&cb, cblen) != cblen) {
-		printf("Failed. Should have copied: %d\n", cblen);
 		return false;
 	}
-	/* if (write(fd_pcapng, &cb, cblen) != cblen)
-		return false; */
 	wecbcount++;
 	return true;
 }
 
 /*---------------------------------------------------------------------------*/
-/* static bool open_pcapng(char *pcapngoutname)
-{
-	static int c;
-	static struct stat statinfo;
-	static char *pcapngfilename = NULL;
-	static char pcapngname[PATH_MAX];
-	fprintf(stderr, "Attempting to open dump file.\n");
-	if (pcapngoutname == NULL)
-	{
-		c = 0;
-		snprintf(pcapngname, PATH_MAX, "%s-%s.pcapng", timestring1, ifaktname);
-		while (stat(pcapngname, &statinfo) == 0)
-		{
-			snprintf(pcapngname, PATH_MAX, "%s-%s-%02d.pcapng", timestring1, ifaktname, c);
-			c++;
-		}
-		pcapngfilename = pcapngname;
-	}
-	else
-		pcapngfilename = pcapngoutname;
-	umask(0);
-	if ((fd_pcapng = open(pcapngfilename, O_WRONLY | O_TRUNC | O_CREAT, 0777)) < 0) {
-		fprintf(stderr, "open_pcapng failed: open\n");
-		return false;
-	}
-	if (writeshb() == false) {
-		fprintf(stderr, "open_pcapng failed: shb\n");
-		return false;
-	}
-	if (writeidb() == false) {
-		fprintf(stderr, "open_pcapng failed: idb\n");
-		return false;
-	}
-	if (writecb() == false) {
-		fprintf(stderr, "open_pcapng failed: cb\n");
-		return false;
-	}
-	return true;
-}  */
 
 static bool setup_pcap_buffer() {
 	pcap_buffer = (u8*)calloc(pcap_buffer_size + 1, sizeof(u8));
@@ -785,33 +688,14 @@ static bool setup_pcap_buffer() {
 
 static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n) {
 	ssize_t pcap_new_total = pcap_buffer_size + __n;
-	//printf("Attempting to realloc buffer\n");
-
-	/* printf("Before Length: %d\n", pcap_buffer_size);
-	if(pcap_buffer_size > 0) {
-		for(int i = 0; i < pcap_buffer_size; i++) {
-			printf("%02x ", *(pcap_buffer + i));
-		}
-		printf("\nEND\n");
-	} */
 
 	u8* newbuffer = realloc(pcap_buffer, pcap_new_total * sizeof(u8));
 	if (newbuffer == NULL) {
 		return false;
 	}
-	//printf("Realloc Complete. Attempting to copy data: Old: %d | New: %d\n", pcap_buffer_size, pcap_new_total);
 	pcap_buffer = newbuffer;
 	memcpy(pcap_buffer+pcap_buffer_size, __buf, __n);
 	pcap_buffer_size = pcap_new_total;
-	//printf("MemCopy Complete: Copied: %d\n", __n);
-	
-	/* printf("After Length: %d\n", pcap_buffer_size);
-	if(pcap_buffer_size > 0) {
-		for(int i = 0; i < pcap_buffer_size; i++) {
-			printf("%02x ", *(pcap_buffer + i));
-		}
-		printf("\nEND\n");
-	} */
 
 	return __n;
 }
@@ -3740,7 +3624,7 @@ static bool open_socket_rx()
 		return false;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0))
 	if (setsockopt(fd_socket_rx, SOL_PACKET, PACKET_IGNORE_OUTGOING, &enable, sizeof(int)) < 0)
-		fprintf(stderr, "PACKET_IGNORE_OUTGOING is not supported by kernel\nfalling back to validate radiotap header length\n");
+		printError("PACKET_IGNORE_OUTGOING is not supported by kernel. Falling back to validate radiotap header length", 0);
 #endif
 	if (bpf.len > 0)
 	{
@@ -4060,26 +3944,28 @@ bool generate_filter(char *dev, char *addr)
 
 	char filter_exp[125];
 	snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
-	//printf("Filter: %s\n", filter_exp);
 
 	bpf_u_int32 subnet_mask, ip;
 
 	if (pcap_lookupnet(dev, &ip, &subnet_mask, error_buffer) == -1)
 	{
-		//printf("Could not get information for device: %s\n", dev);
 		ip = 0;
 		subnet_mask = 0;
 	}
 	handle = pcap_open_live(dev, BUFSIZ, 1, 1000, error_buffer);
 	if (handle == NULL)
 	{
-		printf("Could not open %s - %s\n", dev, error_buffer);
-		return 2;
+		static char* error[300];
+		snprintf(error, 299, "Could not open %s - %s", dev, error_buffer);
+		printError(error, 1);
+		return 1;
 	}
 	if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1)
 	{
-		printf("Bad filter - %s\n", pcap_geterr(handle));
-		return 2;
+		static char* error[300];
+		snprintf(error, 299,"Bad filter - %s", pcap_geterr(handle));
+		printError(error, 1);
+		return 1;
 	}
 
 	struct bpf_insn *insn;
@@ -4118,7 +4004,9 @@ static void read_essidlist(char *listname)
 
 	if ((fh_essidlist = fopen(listname, "r")) == NULL)
 	{
-		fprintf(stderr, "failed to open beacon list %s\n", listname);
+		static char* error[300];
+		snprintf(error, 299, "Failed to open beacon list %s", listname);
+		printError(error, 0);
 		return;
 	}
 	i = 0;
@@ -4206,6 +4094,71 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	return clientlist_json;
 }
 
+static inline void send_lists(void) 
+{
+	cJSON *data = cJSON_CreateObject();
+	cJSON *dumptool = cJSON_CreateObject();
+	cJSON *all_aps = cJSON_CreateArray();
+	cJSON *all_clients = cJSON_CreateArray();
+	char *string = NULL;
+	/*
+	if (system("clear") != 0)
+		errorcount++;
+	*/
+
+	for (int i = 0; i < 10; i++)
+	{
+		if ((aplist + i)->tsakt == 0)
+			break; // No more APs
+
+		//cJSON *ap;
+		cJSON *ap = aplist_jsonify(aplist + i);
+		cJSON_AddItemToArray(all_aps, ap);
+	}
+	cJSON_AddItemToObject(dumptool, "aplist", all_aps);
+	
+	for (int i = 0; i < 10; i++)
+	{
+		if ((clientlist + i)->tsakt == 0)
+			break; // No more Clients
+
+		//cJSON *client;
+		cJSON *client = clientlist_jsonify(clientlist + i);
+		cJSON_AddItemToArray(all_clients, client);
+	}
+	cJSON_AddItemToObject(dumptool, "clientlist", all_clients);
+
+	cJSON_AddItemToObject(data, "dumptool", dumptool);
+
+	string = cJSON_PrintUnformatted(data);
+	cJSON_Delete(data);
+	if (string) 
+    {
+        printf("%s\n", string);
+    }
+    cJSON_free(string);
+}
+
+static void printError(char *error, bool fatal) 
+{
+	cJSON *data = cJSON_CreateObject();
+	cJSON *dumptool = cJSON_CreateObject();
+	char *string = NULL;
+
+	cJSON_AddStringToObject(dumptool, "message", error);
+	cJSON_AddBoolToObject(dumptool, "fatal", fatal);
+
+	cJSON_AddItemToObject(data, "ERROR", dumptool);
+
+	string = cJSON_PrintUnformatted(data);
+	cJSON_Delete(data);
+	if (string) 
+    {
+        printf("%s\n", string);
+    }
+	cJSON_free(string);
+}
+
 pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 {
 	// Setup options
@@ -4230,7 +4183,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	if (generate_filter(iname, target_mac) == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to generate BPF\n");
+		printError("failed to generate BPF", 1);
 		exit(1);
 	}
 
@@ -4305,13 +4258,13 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	if (set_signal_handler() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to initialize signal handler\n");
+		printError("failed to initialize signal handler", 1);
 		goto byebye;
 	}
 	if (init_lists() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to initialize lists\n");
+		printError( "failed to initialize lists", 1);
 		goto byebye;
 	}
 	init_values();
@@ -4319,13 +4272,13 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	if (open_control_sockets() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to open control sockets\n");
+		printError( "failed to open control sockets", 1);
 		goto byebye;
 	}
 	if (get_interfacelist() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to get interface list\n");
+		printError( "failed to get interface list", 1);
 		goto byebye;
 	}
 
@@ -4333,7 +4286,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	if (getuid() != 0)
 	{
 		errorcount++;
-		fprintf(stderr, "must be run as root\n");
+		printError( "must be run as root", 1);
 		goto byebye;
 	}
 
@@ -4344,54 +4297,47 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	if (set_interface(interfacefrequencyflag, userfrequencylistname, userchannellistname) == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to arm interface\n");
+		printError("failed to arm interface", 1);
 		goto byebye;
 	}
 	if (essidlistname != NULL)
 		read_essidlist(essidlistname);
-	/* if (open_pcapng(NULL) == false)
-	{
-		errorcount++;
-		fprintf(stderr, "failed to open dump file\n");
-		goto byebye;
-	}  */
 	if (setup_pcap_buffer() == false) {
 		errorcount++;
-		fprintf(stderr, "failed to open pcapng buffer\n");
+		printError("failed to open pcapng buffer", 1);
 		goto byebye;
 	}
 	if (open_socket_rx() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to open raw packet socket\n");
+		printError("failed to open raw packet socket", 1);
 		goto byebye;
 	}
 	if (open_socket_tx() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to open transmit socket\n");
+		printError("failed to open transmit socket", 1);
 		goto byebye;
 	}
 	if (set_timer() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to initialize timer\n");
+		printError("failed to initialize timer", 1);
 		goto byebye;
 	}
 	/*---------------------------------------------------------------------------*/
 	tspecifo.tv_sec = 5;
 	tspecifo.tv_nsec = 0;
 	if (bpf.len == 0) {
-		fprintf(stderr, "BPF Error.\n");
+		printError("BPF Error.", 1);
 		exit(1);
 	}
-	//fprintf(stdout, "Initialize main scan loop...\033[?25l\n");
 	nanosleep(&tspecifo, &tspeciforem);
 
 	if (nl_scanloop() == false)
 	{
 		errorcount++;
-		fprintf(stderr, "failed to initialize main scan loop\n");
+		printError("failed to initialize main scan loop", 1);
 	}
 
 /*---------------------------------------------------------------------------*/

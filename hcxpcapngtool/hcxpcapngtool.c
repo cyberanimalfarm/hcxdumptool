@@ -365,22 +365,7 @@ static uint16_t usedfrequency[0xffff];
 
 static uint8_t beaconchannel[CHANNEL_MAX];
 /*===========================================================================*/
-/*
-static inline void debugprint(int len, uint8_t *ptr)
-{
-static int p;
 
-fprintf(stdout, "\nRAW: ");
-
-for(p = 0; p < len; p++)
-	{
-	fprintf(stdout, "%02x", ptr[p]);
-	}
-fprintf(stdout, "\n");
-return;
-}
-*/
-/*===========================================================================*/
 static void closelists(void)
 {
 	if (aplist != NULL)
@@ -650,564 +635,7 @@ static bool initlists(void)
 	return true;
 }
 /*===========================================================================*/
-static void printcontentinfo(void)
-{
-	static int c;
-	static uint8_t i;
-	static uint16_t p;
 
-	if (endianness == 0)
-		fprintf(stdout, "endianness (capture system)..............: little endian\n");
-	else
-		fprintf(stdout, "endianness (capture system)..............: big endian\n");
-	if (rawpacketcount > 0)
-		fprintf(stdout, "packets inside...........................: %ld\n", rawpacketcount);
-	if (skippedpacketcount > 0)
-		fprintf(stdout, "skipped packets..........................: %ld\n", skippedpacketcount);
-	if (fcsframecount > 0)
-		fprintf(stdout, "frames with correct FCS..................: %ld\n", fcsframecount);
-	if (band24count > 0)
-		fprintf(stdout, "packets received on 2.4 GHz..............: %ld\n", band24count);
-	if (band5count > 0)
-		fprintf(stdout, "packets received on 5 GHz................: %ld\n", band5count);
-	if (band6count > 0)
-		fprintf(stdout, "packets received on 6 GHz................: %ld\n", band6count);
-	if (wdscount > 0)
-		fprintf(stdout, "WIRELESS DISTRIBUTION SYSTEM.............: %ld\n", wdscount);
-	if (deviceinfocount > 0)
-		fprintf(stdout, "frames containing device information.....: %ld\n", deviceinfocount);
-	if (essidcount > 0)
-		fprintf(stdout, "ESSID (total unique).....................: %ld\n", essidcount);
-	if (essiddupemax > 0)
-	{
-		if ((essidsvalue > 1) || (donotcleanflag == true))
-			fprintf(stdout, "ESSID changes (detected maximum).........: %ld\n", essiddupemax);
-		else
-			fprintf(stdout, "ESSID changes (detected maximum).........: %ld (information: option --max-essids=%ld and --all recommended)\n", essiddupemax, essiddupemax + 1);
-	}
-	if (beaconcount > 0)
-	{
-		fprintf(stdout, "BEACON (total)...........................: %ld\n", beaconcount);
-		if ((beaconchannel[0] & GHZ24) == GHZ24)
-		{
-			fprintf(stdout, "BEACON on 2.4 GHz channel (from IE_TAG)..: ");
-			for (i = 1; i <= 14; i++)
-			{
-				if (beaconchannel[i] != 0)
-					fprintf(stdout, "%d ", i);
-			}
-			fprintf(stdout, "\n");
-		}
-		if ((beaconchannel[0] & GHZ5) == GHZ5)
-		{
-			fprintf(stdout, "BEACON on 5/6 GHz channel (from IE_TAG)..: ");
-			for (i = 15; i < CHANNEL_MAX; i++)
-			{
-				if (beaconchannel[i] != 0)
-					fprintf(stdout, "%d ", i);
-			}
-			fprintf(stdout, "\n");
-		}
-	}
-	if (beaconssidunsetcount > 0)
-		fprintf(stdout, "BEACON (SSID wildcard/unset).............: %ld\n", beaconssidunsetcount);
-	if (beaconssidzeroedcount > 0)
-		fprintf(stdout, "BEACON (SSID zeroed).....................: %ld\n", beaconssidzeroedcount);
-	if (beaconssidoversizedcount > 0)
-		fprintf(stdout, "BEACON (oversized SSID length)...........: %ld\n", beaconssidoversizedcount);
-	if (pagcount > 0)
-		fprintf(stdout, "BEACON (pwnagotchi)......................: %ld\n", pagcount);
-	if (beaconhcxcount > 0)
-		fprintf(stdout, "BEACON (hcxhash2cap).....................: %ld\n", beaconhcxcount);
-	if (actioncount > 0)
-		fprintf(stdout, "ACTION (total)...........................: %ld\n", actioncount);
-	if (actionessidcount > 0)
-		fprintf(stdout, "ACTION (containing ESSID)................: %ld\n", actionessidcount);
-	if (awdlcount > 0)
-		fprintf(stdout, "AWDL (Apple Wireless Direct Link)........: %ld\n", awdlcount);
-	if (proberequestundirectedcount > 0)
-		fprintf(stdout, "PROBEREQUEST (undirected)................: %ld\n", proberequestundirectedcount);
-	if (proberequestdirectedcount > 0)
-		fprintf(stdout, "PROBEREQUEST (directed)..................: %ld\n", proberequestdirectedcount);
-	if (proberesponsecount > 0)
-		fprintf(stdout, "PROBERESPONSE (total)....................: %ld\n", proberesponsecount);
-	if (proberesponsessidunsetcount > 0)
-		fprintf(stdout, "PROBERESPONSE (SSID unset)...............: %ld\n", proberesponsessidunsetcount);
-	if (proberesponsessidzeroedcount > 0)
-		fprintf(stdout, "PROBERESPONSE (SSID zeroed)..............: %ld\n", proberesponsessidzeroedcount);
-	if (deauthenticationcount > 0)
-		fprintf(stdout, "DEAUTHENTICATION (total).................: %ld\n", deauthenticationcount);
-	if (disassociationcount > 0)
-		fprintf(stdout, "DISASSOCIATION (total)...................: %ld\n", disassociationcount);
-	if (authenticationcount > 0)
-		fprintf(stdout, "AUTHENTICATION (total)...................: %ld\n", authenticationcount);
-	if (authopensystemcount > 0)
-		fprintf(stdout, "AUTHENTICATION (OPEN SYSTEM).............: %ld\n", authopensystemcount);
-	if (authseacount > 0)
-		fprintf(stdout, "AUTHENTICATION (SAE).....................: %ld\n", authseacount);
-	if (authsharedkeycount > 0)
-		fprintf(stdout, "AUTHENTICATION (SHARED KEY)..............: %ld\n", authsharedkeycount);
-	if (authfbtcount > 0)
-		fprintf(stdout, "AUTHENTICATION (FBT).....................: %ld\n", authfbtcount);
-	if (authfilscount > 0)
-		fprintf(stdout, "AUTHENTICATION (FILS)....................: %ld\n", authfilscount);
-	if (authfilspfs > 0)
-		fprintf(stdout, "AUTHENTICATION (FILS PFS)................: %ld\n", authfilspfs);
-	if (authfilspkcount > 0)
-		fprintf(stdout, "AUTHENTICATION (FILS PK..................: %ld\n", authfilspkcount);
-	if (authnetworkeapcount > 0)
-		fprintf(stdout, "AUTHENTICATION (NETWORK EAP).............: %ld\n", authnetworkeapcount);
-	if (authunknowncount > 0)
-		fprintf(stdout, "AUTHENTICATION (unknown).................: %ld\n", authunknowncount);
-	if (associationrequestcount > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (total)...............: %ld\n", associationrequestcount);
-	if (associationrequestpskcount > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (PSK).................: %ld\n", associationrequestpskcount);
-	if (associationrequestftpskcount > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (FT using PSK)........: %ld\n", associationrequestftpskcount);
-	if (associationrequestpsk256count > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (PSK SHA256)..........: %ld\n", associationrequestpsk256count);
-	if (associationrequestsae256count > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (SAE SHA256)..........: %ld\n", associationrequestsae256count);
-	if (associationrequestsae384bcount > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (SAE SHA384 SUITE B)..: %ld\n", associationrequestsae384bcount);
-	if (associationrequestowecount > 0)
-		fprintf(stdout, "ASSOCIATIONREQUEST (OWE).................: %ld\n", associationrequestowecount);
-	if (reassociationrequestcount > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (total).............: %ld\n", reassociationrequestcount);
-	if (reassociationrequestpskcount > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (PSK)...............: %ld\n", reassociationrequestpskcount);
-	if (reassociationrequestftpskcount > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (FT using PSK)......: %ld\n", reassociationrequestftpskcount);
-	if (reassociationrequestpsk256count > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (PSK SHA256)........: %ld\n", reassociationrequestpsk256count);
-	if (reassociationrequestsae256count > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (SAE SHA256)........: %ld\n", reassociationrequestsae256count);
-	if (reassociationrequestsae384bcount > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (SAE SHA384 SUITE B): %ld\n", reassociationrequestsae384bcount);
-	if (reassociationrequestowecount > 0)
-		fprintf(stdout, "REASSOCIATIONREQUEST (OWE)...............: %ld\n", reassociationrequestowecount);
-	if (mgtreservedcount > 0)
-		fprintf(stdout, "RESERVED MANAGEMENT frame................: %ld\n", mgtreservedcount);
-	if (wpaenccount > 0)
-		fprintf(stdout, "WPA encrypted............................: %ld\n", wpaenccount);
-	if (wepenccount > 0)
-		fprintf(stdout, "WEP encrypted............................: %ld\n", wepenccount);
-	if (ipv4count > 0)
-		fprintf(stdout, "IPv4 (total).............................: %ld\n", ipv4count);
-	if (icmp4count > 0)
-		fprintf(stdout, "ICMPv4...................................: %ld\n", icmp4count);
-	if (ipv6count > 0)
-		fprintf(stdout, "IPv6 (total).............................: %ld\n", ipv6count);
-	if (icmp6count > 0)
-		fprintf(stdout, "ICMPv6...................................: %ld\n", icmp6count);
-	if (tcpcount > 0)
-		fprintf(stdout, "TCP (total)..............................: %ld\n", tcpcount);
-	if (udpcount > 0)
-		fprintf(stdout, "UDP (total)..............................: %ld\n", udpcount);
-	if (grecount > 0)
-		fprintf(stdout, "GRE (total)..............................: %ld\n", grecount);
-	if (protochapcount > 0)
-		fprintf(stdout, "PPP-CHAP (total).........................: %ld\n", protochapcount);
-	if (protochapreqcount > 0)
-		fprintf(stdout, "PPP-CHAP request.........................: %ld\n", protochapreqcount);
-	if (protochaprespcount > 0)
-		fprintf(stdout, "PPP-CHAP response........................: %ld\n", protochaprespcount);
-	if (protochapsuccesscount > 0)
-		fprintf(stdout, "PPP-CHAP success.........................: %ld\n", protochapsuccesscount);
-	if (protopapcount > 0)
-		fprintf(stdout, "PPP-PAP..................................: %ld\n", protopapcount);
-	if (tacacspcount > 0)
-		fprintf(stdout, "TACACS+ v1...............................: %ld\n", tacacspcount);
-	if (tacacsp2count > 0)
-		fprintf(stdout, "TACACS+ v2...............................: %ld (unsupported)\n", tacacsp2count);
-	if (tacacsp3count > 0)
-		fprintf(stdout, "TACACS+ v3...............................: %ld (unsupported)\n", tacacsp3count);
-	if (tacacspwrittencount > 0)
-		fprintf(stdout, "TACACS+ written..........................: %ld\n", tacacspwrittencount);
-	if (identitycount > 0)
-		fprintf(stdout, "IDENTITIES...............................: %ld\n", identitycount);
-	if (usernamecount > 0)
-		fprintf(stdout, "USERNAMES................................: %ld\n", usernamecount);
-	if (radiusrequestcount > 0)
-		fprintf(stdout, "RADIUS AUTHENTICATION (REQUEST)..........: %ld\n", radiusrequestcount);
-	if (radiuschallengecount > 0)
-		fprintf(stdout, "RADIUS AUTHENTICATION (CHALLENGE)........: %ld\n", radiuschallengecount);
-	if (radiusacceptcount > 0)
-		fprintf(stdout, "RADIUS AUTHENTICATION (ACCEPT)...........: %ld\n", radiusacceptcount);
-	if (radiusrejectcount > 0)
-		fprintf(stdout, "RADIUS AUTHENTICATION (REJECT)...........: %ld\n", radiusrejectcount);
-	if (eapcount > 0)
-		fprintf(stdout, "EAP (total)..............................: %ld\n", eapcount);
-	if (eapexpandedcount > 0)
-		fprintf(stdout, "EAP-EXPANDED.............................: %ld\n", eapexpandedcount);
-	if (eapcodereqcount > 0)
-		fprintf(stdout, "EAP CODE request.........................: %ld\n", eapcodereqcount);
-	if (eapcoderespcount > 0)
-		fprintf(stdout, "EAP CODE response........................: %ld\n", eapcoderespcount);
-	if (eapidcount > 0)
-		fprintf(stdout, "EAP ID...................................: %ld\n", eapidcount);
-	if (eapsimcount > 0)
-		fprintf(stdout, "EAP-SIM..................................: %ld\n", eapsimcount);
-	if (eapakacount > 0)
-		fprintf(stdout, "EAP-AKA..................................: %ld\n", eapakacount);
-	if (eappeapcount > 0)
-		fprintf(stdout, "EAP-PEAP.................................: %ld\n", eappeapcount);
-	if (eapmd5count > 0)
-		fprintf(stdout, "EAP-MD5 messages.........................: %ld\n", eapmd5count);
-	if (eapmd5hashcount > 0)
-		fprintf(stdout, "EAP-MD5 pairs............................: %ld\n", eapmd5hashcount);
-	if (eapmd5writtencount > 0)
-		fprintf(stdout, "EAP-MD5 pairs written....................: %ld\n", eapmd5writtencount);
-	if (eapmd5johnwrittencount > 0)
-		fprintf(stdout, "EAP-MD5 pairs written to JtR.............: %ld\n", eapmd5johnwrittencount);
-	if (eapleapcount > 0)
-		fprintf(stdout, "EAP-LEAP messages........................: %ld\n", eapleapcount);
-	if (eapleapwrittencount > 0)
-		fprintf(stdout, "EAP-LEAP pairs written...................: %ld\n", eapleapwrittencount);
-	if (eapmschapv2count > 0)
-		fprintf(stdout, "EAP-MSCHAPV2 messages....................: %ld\n", eapmschapv2count);
-	if (eapmschapv2writtencount > 0)
-		fprintf(stdout, "EAP-MSCHAPV2 pairs written...............: %ld\n", eapmschapv2writtencount);
-	if (eaptlscount > 0)
-		fprintf(stdout, "EAP-TLS messages.........................: %ld\n", eaptlscount);
-	if (eapolmsgcount > 0)
-		fprintf(stdout, "EAPOL messages (total)...................: %ld\n", eapolmsgcount);
-	if (eapolrc4count > 0)
-		fprintf(stdout, "EAPOL RC4 messages.......................: %ld\n", eapolrc4count);
-	if (eapolrsncount > 0)
-		fprintf(stdout, "EAPOL RSN messages.......................: %ld\n", eapolrsncount);
-	if (eapolwpacount > 0)
-		fprintf(stdout, "EAPOL WPA messages.......................: %ld\n", eapolwpacount);
-	if (eaptimegapmax > 0)
-		fprintf(stdout, "EAPOLTIME gap (measured maximum msec)....: %" PRIu64 "\n", eaptimegapmax / 1000000);
-	if (rcgapmax > 1024)
-		rcgapmax = 1024;
-	if ((eapolnccount > 0) && (eapolmpcount > 0))
-	{
-		printf("EAPOL ANONCE error corrections (NC)......: working\n");
-		if (rcgapmax > 0)
-			fprintf(stdout, "REPLAYCOUNT gap (suggested NC)...........: %" PRIu64 "\n", rcgapmax);
-		if (rcgapmax == 0)
-			fprintf(stdout, "REPLAYCOUNT gap (recommended NC).........: 8\n");
-	}
-	if (eapolnccount == 0)
-	{
-		fprintf(stdout, "EAPOL ANONCE error corrections (NC)......: not detected\n");
-		if (rcgapmax > 0)
-			fprintf(stdout, "REPLAYCOUNT gap (measured maximum).......: %" PRIu64 "\n", rcgapmax);
-	}
-	if (eapolm1count > 0)
-		fprintf(stdout, "EAPOL M1 messages (total)................: %ld\n", eapolm1count);
-	if (eapolm1kdv0count > 0)
-		fprintf(stdout, "EAPOL M1 messages (KDV:0 AKM defined)....: %ld (PMK not recoverable)\n", eapolm1kdv0count);
-	if (eapolm2count > 0)
-		fprintf(stdout, "EAPOL M2 messages (total)................: %ld\n", eapolm2count);
-	if (eapolm2kdv0count > 0)
-		fprintf(stdout, "EAPOL M2 messages (KDV:0 AKM defined)....: %ld (PMK not recoverable)\n", eapolm2kdv0count);
-	if (eapolm2ftpskcount > 0)
-		fprintf(stdout, "EAPOL M2 messages (FT using PSK).........: %ld (PMK not recoverable)\n", eapolm2ftpskcount);
-	if (eapolm3count > 0)
-		fprintf(stdout, "EAPOL M3 messages (total)................: %ld\n", eapolm3count);
-	if (eapolm3kdv0count > 0)
-		fprintf(stdout, "EAPOL M3 messages (KDV:0 AKM defined)....: %ld (PMK not recoverable)\n", eapolm3kdv0count);
-	if (eapolm4count > 0)
-		fprintf(stdout, "EAPOL M4 messages (total)................: %ld\n", eapolm4count);
-	if (eapolm4zeroedcount > 0)
-		fprintf(stdout, "EAPOL M4 messages (zeroed NONCE).........: %ld\n", eapolm4zeroedcount);
-	if (eapolm4kdv0count > 0)
-		fprintf(stdout, "EAPOL M4 messages (KDV:0 AKM defined)....: %ld (PMK not recoverable)\n", eapolm4kdv0count);
-	if (eapolmpcount > 0)
-		fprintf(stdout, "EAPOL pairs (total)......................: %ld\n", eapolmpcount);
-	if (zeroedeapolpskcount > 0)
-		fprintf(stdout, "EAPOL (from zeroed PSK)..................: %ld (not converted by default options - use --all if needed)\n", zeroedeapolpskcount);
-	if (zeroedeapolpmkcount > 0)
-		fprintf(stdout, "EAPOL (from zeroed PMK)..................: %ld (not converted by default options - use --all if needed)\n", zeroedeapolpmkcount);
-
-	if (donotcleanflag == false)
-	{
-		if (eapolmpbestcount > 0)
-			fprintf(stdout, "EAPOL pairs (best).......................: %ld\n", eapolmpbestcount);
-	}
-	else
-	{
-		if (eapolmpbestcount > 0)
-			fprintf(stdout, "EAPOL pairs (useful).....................: %ld\n", eapolmpbestcount);
-	}
-	if (eapolaplesscount > 0)
-		fprintf(stdout, "EAPOL ROGUE pairs........................: %ld\n", eapolaplesscount);
-	if (eapolwrittencount > 0)
-		fprintf(stdout, "EAPOL pairs written to 22000 hash file...: %ld (RC checked)\n", eapolwrittencount);
-	if (eapolncwrittencount > 0)
-		fprintf(stdout, "EAPOL pairs written to 22000 hash file...: %ld (RC not checked)\n", eapolncwrittencount);
-	if (eapolwrittenhcpxcountdeprecated > 0)
-		fprintf(stdout, "EAPOL pairs written to old format hccapx.: %ld (RC checked)\n", eapolwrittenhcpxcountdeprecated);
-	if (eapolncwrittenhcpxcountdeprecated > 0)
-		fprintf(stdout, "EAPOL pairs written to old format hccapx.: %ld (RC not checked)\n", eapolncwrittenhcpxcountdeprecated);
-	if (eapolwrittenhcpcountdeprecated > 0)
-		fprintf(stdout, "EAPOL pairs written to old format hccap..: %ld (RC checked)\n", eapolwrittenhcpcountdeprecated);
-	if (eapolwrittenjcountdeprecated > 0)
-		fprintf(stdout, "EAPOL pairs written to old format JtR....: %ld (RC checked)\n", eapolwrittenjcountdeprecated);
-	if (eapolm12e2count > 0)
-		fprintf(stdout, "EAPOL M12E2 (challenge)..................: %ld\n", eapolm12e2count);
-	if (eapolm14e4count > 0)
-		fprintf(stdout, "EAPOL M14E4 (authorized).................: %ld\n", eapolm14e4count);
-	if (eapolm32e2count > 0)
-		fprintf(stdout, "EAPOL M32E2 (authorized).................: %ld\n", eapolm32e2count);
-	if (eapolm32e3count > 0)
-		fprintf(stdout, "EAPOL M32E3 (authorized).................: %ld\n", eapolm32e3count);
-	if (eapolm34e3count > 0)
-		fprintf(stdout, "EAPOL M34E3 (authorized).................: %ld\n", eapolm34e3count);
-	if (eapolm34e4count > 0)
-		fprintf(stdout, "EAPOL M34E4 (authorized).................: %ld\n", eapolm34e4count);
-	if (pmkiduselesscount > 0)
-		fprintf(stdout, "RSN PMKID (useless)......................: %ld\n", pmkiduselesscount);
-	if (pmkidfaultycount > 0)
-		fprintf(stdout, "RSN PMKID (faulty).......................: %ld\n", pmkidfaultycount);
-	if (pmkidcount > 0)
-		fprintf(stdout, "RSN PMKID (total)........................: %ld\n", pmkidcount);
-	if (zeroedpmkidpskcount > 0)
-		fprintf(stdout, "RSN PMKID (from zeroed PSK)..............: %ld (not converted by default options - use --all if needed)\n", zeroedpmkidpskcount);
-	if (zeroedpmkidpmkcount > 0)
-		fprintf(stdout, "RSN PMKID (from zeroed PMK)..............: %ld (not converted by default options - use --all if needed)\n", zeroedpmkidpmkcount);
-	if (donotcleanflag == false)
-	{
-		if (pmkidbestcount > 0)
-			fprintf(stdout, "RSN PMKID (best).........................: %ld\n", pmkidbestcount);
-	}
-	else
-	{
-		if (pmkidbestcount > 0)
-			fprintf(stdout, "RSN PMKID (useful).......................: %ld\n", pmkidbestcount);
-	}
-	if (pmkidroguecount > 0)
-		fprintf(stdout, "RSN PMKID ROGUE..........................: %ld\n", pmkidroguecount);
-	if (pmkidakmcount > 0)
-		fprintf(stdout, "RSN PMKID (KDV:0 AKM defined)............: %ld (PMK not recoverable)\n", pmkidakmcount);
-	if (pmkidwrittenhcount > 0)
-		fprintf(stdout, "RSN PMKID written to 22000 hash file.....: %ld\n", pmkidwrittenhcount);
-	if (pmkidclientwrittenhcount > 0)
-		fprintf(stdout, "RSN PMKID written to 22000 hash file.....: %ld (possible MESH/REPEATER PMKIDs)\n", pmkidclientwrittenhcount);
-	if (pmkidwrittenjcountdeprecated > 0)
-		fprintf(stdout, "RSN PMKID written to old format JtR......: %ld\n", pmkidwrittenjcountdeprecated);
-	if (pmkidwrittencountdeprecated > 0)
-		fprintf(stdout, "RSN PMKID written to old format (1680x)..: %ld\n", pmkidwrittencountdeprecated);
-	if (pcapreaderrors > 0)
-		fprintf(stdout, "packet read error........................: %ld\n", pcapreaderrors);
-	if (radiotaperrorcount > 0)
-		fprintf(stdout, "packet with damaged radiotap header......: %ld\n", radiotaperrorcount);
-	if (zeroedtimestampcount > 0)
-		fprintf(stdout, "packets with zeroed timestamps...........: %ld\n", zeroedtimestampcount);
-	if (eapolmsgtimestamperrorcount > 0)
-		fprintf(stdout, "EAPOL frames with wrong timestamp........: %ld\n", eapolmsgtimestamperrorcount);
-	malformedcount = beaconerrorcount + broadcastmacerrorcount + taglenerrorcount + essiderrorcount + eapolmsgerrorcount;
-	if (malformedcount > 0)
-		fprintf(stdout, "malformed packets (total)................: %ld\n", malformedcount);
-	beaconerrorcount += broadcastmacerrorcount;
-	if (beaconerrorcount > 0)
-		fprintf(stdout, "BEACON error (total malformed packets)...: %ld\n", beaconerrorcount);
-	if (broadcastmacerrorcount > 0)
-		fprintf(stdout, "BROADCAST MAC error (malformed packets)..: %ld\n", broadcastmacerrorcount);
-	if (taglenerrorcount > 0)
-		fprintf(stdout, "IE TAG length error (malformed packets)..: %ld\n", taglenerrorcount);
-	if (essiderrorcount > 0)
-		fprintf(stdout, "ESSID error (malformed packets)..........: %ld\n", essiderrorcount);
-	eapolmsgerrorcount = eapolmsgerrorcount + eapolm1errorcount + eapolm2errorcount + eapolm3errorcount + eapolm4errorcount;
-	if (eapolmsgerrorcount > 0)
-		fprintf(stdout, "EAPOL messages (malformed packets).......: %ld\n", eapolmsgerrorcount);
-	if (radiotappresent == true)
-	{
-		c = 0;
-		fprintf(stdout, "\nfrequency statistics from radiotap header (frequency: received packets)\n"
-						"-----------------------------------------------------------------------\n");
-		for (p = 2412; p <= 7115; p++)
-		{
-			if (usedfrequency[p] != 0)
-			{
-				fprintf(stdout, "% 5d: %d\t", p, usedfrequency[p]);
-				c++;
-				if ((c % 4) == 0)
-					fprintf(stdout, "\n");
-			}
-		}
-		fprintf(stdout, "\n");
-	}
-	if (zeroedtimestampcount > 0)
-	{
-		fprintf(stdout, "\nWarning: missing timestamps!\n"
-						"This dump file contains frames with zeroed timestamps.\n"
-						"It prevent calculation of EAPOL TIMEOUT values.\n"
-						"That is a bug of the capturing/cleaning.\n");
-	}
-
-	if (eapolmsgtimestamperrorcount > 0)
-	{
-		fprintf(stdout, "\nWarning: wrong timestamps!\n"
-						"This dump file contains frames with wrong timestamps.\n"
-						"It prevent calculation of EAPOL TIMEOUT values.\n"
-						"That is a bug of the capturing/cleaning tool.\n");
-	}
-
-	if (sequenceerrorcount > 0)
-	{
-		fprintf(stdout, "\nWarning: out of sequence timestamps!\n"
-						"This dump file contains frames with out of sequence timestamps.\n"
-						"That is a bug of the capturing/cleaning tool.\n");
-	}
-
-	if (ancientdumpfileformat == true)
-	{
-		fprintf(stdout, "\nInformation: limited dump file format detected!\n"
-						"This file format is a very basic format to save captured network data.\n"
-						"It is recommended to use PCAP Next Generation dump file format (or pcapng for short) instead.\n"
-						"The PCAP Next Generation dump file format is an attempt to overcome the limitations\n"
-						"of the currently widely used (but very limited) libpcap (cap, pcap) format.\n"
-						"https://www.wireshark.org/docs/wsug_html_chunked/AppFiles.html#ChAppFilesCaptureFilesSection\n"
-						"https://github.com/pcapng/pcapng\n");
-	}
-
-	if (ieee80211flag == false)
-	{
-		fprintf(stdout, "\n");
-		return;
-	}
-
-	if (radiotappresent == false)
-	{
-		fprintf(stdout, "\nInformation: radiotap header is missing!\n"
-						"Radiotap is a de facto standard for 802.11 frame injection and\n"
-						"reception. The radiotap header format is a mechanism to supply\n"
-						"additional information about frames, from the driver to userspace\n"
-						"applications.\n"
-						"https://www.radiotap.org/\n");
-	}
-
-	if (magicblockcount > 1)
-	{
-		fprintf(stdout, "\nWarning: this dump file contains more than one custom block!\n"
-						"This always happens if dump files are merged!\n"
-						"Do not merge dump files, because this destroys assigned hash values!\n");
-	}
-
-	if (((deauthenticationcount + disassociationcount) >= 100) && ((deauthenticationcount + disassociationcount) <= 10000))
-	{
-		fprintf(stdout, "\nWarning: too many deauthentication/disassociation frames detected!\n"
-						"That can cause that an ACCESS POINT change channel, reset EAPOL TIMER,\n"
-						"renew ANONCE and set PMKID to zero.\n"
-						"This could prevent to calculate a valid EAPOL MESSAGE PAIR\n"
-						"or to get a valid PMKID.\n");
-	}
-	if ((deauthenticationcount + disassociationcount) > 10000)
-	{
-		fprintf(stdout, "\nWarning: excessive number of deauthentication/disassociation frames detected!\n"
-						"That can cause that an ACCESS POINT change channel, reset EAPOL TIMER,\n"
-						"renew ANONCE and set PMKID to zero.\n"
-						"This could prevent to calculate a valid EAPOL MESSAGE PAIR\n"
-						"or to get a valid PMKID.\n");
-	}
-	if (((beaconcount + proberesponsecount) == 0) && ((associationrequestcount + reassociationrequestcount) == 0))
-	{
-		fprintf(stdout, "\nInformation: missing frames!\n"
-						"This dump file does not contain BEACON or PROBERESPONSE frames.\n"
-						"This frames contain the ESSID which is mandatory to calculate a PMK.\n"
-						"It always happens if the capture file was cleaned or\n"
-						"it could happen if filter options are used during capturing.\n"
-						"That makes it impossible to recover the PSK.\n");
-	}
-	if (proberequestundirectedcount == 0)
-	{
-		fprintf(stdout, "\nInformation: missing frames!\n"
-						"This dump file does not contain undirected proberequest frames.\n"
-						"An undirected proberequest may contain information about the PSK.\n"
-						"It always happens if the capture file was cleaned or\n"
-						"it could happen if filter options are used during capturing.\n"
-						"That makes it hard to recover the PSK.\n");
-	}
-	if ((authenticationcount + associationrequestcount + reassociationrequestcount) == 0)
-	{
-		fprintf(stdout, "\nInformation: missing frames!\n"
-						"This dump file does not contain important frames like\n"
-						"authentication, association or reassociation.\n"
-						"It always happens if the capture file was cleaned or\n"
-						"it could happen if filter options are used during capturing.\n"
-						"That makes it hard to recover the PSK.\n");
-	}
-	if (eapolm1ancount <= 1)
-	{
-		fprintf(stdout, "\nInformation: missing frames!\n"
-						"This dump file does not contain enough EAPOL M1 frames.\n"
-						"It always happens if the capture file was cleaned or\n"
-						"it could happen if filter options are used during capturing.\n"
-						"That makes it impossible to calculate nonce-error-correction values.\n");
-	}
-	if ((eapolm1count + eapolm2count + eapolm4count > 0) && (eapolm3count == 0))
-	{
-		fprintf(stdout, "\nInformation: missing EAPOL M3 frames!\n"
-						"This dump file does not contain EAPOL M3 frames (possible packet loss).\n"
-						"It strongly recommended to recapture the traffic or\n"
-						"to use --all option to convert all possible EAPOL MESSAGE PAIRs.\n");
-	}
-	if (malformedcount > 5)
-	{
-		fprintf(stdout, "\nInformation: malformed packets detected!\n"
-						"In monitor mode the adapter does not check to see if the cyclic redundancy check (CRC)\n"
-						"values are correct for packets captured. The device is able to detect the Physical Layer\n"
-						"Convergence Procedure (PLCP) preamble and is able to synchronize to it, but if there is\n"
-						"a bit error in the payload it can lead to unexpected results.\n"
-						"Please analyze the dump file with tshark or Wireshark or make a better capture!\n");
-	}
-	if ((eapolwrittencount + eapolncwrittencount + eapolwrittenhcpxcountdeprecated + eapolncwrittenhcpxcountdeprecated + eapolwrittenhcpcountdeprecated + eapolwrittenjcountdeprecated + pmkidwrittenhcount + pmkidwrittenjcountdeprecated + pmkidwrittencountdeprecated + eapmd5writtencount + eapmd5johnwrittencount + eapleapwrittencount + eapmschapv2writtencount + tacacspwrittencount) == 0)
-	{
-		fprintf(stdout, "\nInformation: no hashes written to hash files\n");
-	}
-
-	fprintf(stdout, "\n");
-	return;
-}
-/*===========================================================================*/
-static void printlinklayerinfo(void)
-{
-	static uint32_t c;
-	static time_t tvmin;
-	static time_t tvmax;
-	static char timestringmin[32];
-	static char timestringmax[32];
-
-	radiotappresent = false;
-	tvmin = timestampmin / 1000000000;
-	strftime(timestringmin, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmin));
-	tvmax = timestampmax / 1000000000;
-	strftime(timestringmax, 32, "%m.%d.%Y %H:%M:%S", localtime(&tvmax));
-	fprintf(stdout, "timestamp minimum (GMT)..................: %s\n", timestringmin);
-	fprintf(stdout, "timestamp maximum (GMT)..................: %s\n", timestringmax);
-	fprintf(stdout, "used capture interfaces..................: %d\n", iface);
-	for (c = 0; c < iface; c++)
-	{
-		if (c > 0)
-		{
-			if (dltlinktype[c] == dltlinktype[c - 1])
-				continue;
-		}
-		if (dltlinktype[c] == DLT_IEEE802_11_RADIO)
-		{
-			fprintf(stdout, "link layer header type...................: DLT_IEEE802_11_RADIO (%d)\n", dltlinktype[c]);
-			radiotappresent = true;
-		}
-		else if (dltlinktype[c] == DLT_IEEE802_11)
-			fprintf(stdout, "link layer header type...................: DLT_IEEE802_11 (%d) very basic format without any additional information about the quality\n", dltlinktype[c]);
-		else if (dltlinktype[c] == DLT_PPI)
-			fprintf(stdout, "link layer header type...................: DLT_PPI (%d)\n", dltlinktype[c]);
-		else if (dltlinktype[c] == DLT_PRISM_HEADER)
-			fprintf(stdout, "link layer header type...................: DLT_PRISM_HEADER (%d)\n", dltlinktype[c]);
-		else if (dltlinktype[c] == DLT_IEEE802_11_RADIO_AVS)
-			fprintf(stdout, "link layer header type...................: DLT_IEEE802_11_RADIO_AVS (%d)\n", dltlinktype[c]);
-		else if (dltlinktype[c] == DLT_EN10MB)
-			fprintf(stdout, "link layer header type...................: DLT_EN10MB (%d)\n", dltlinktype[c]);
-		else if (dltlinktype[c] == DLT_NULL)
-			fprintf(stdout, "link layer header type...................: DLT_NULL (BSD LO) (%d)\n", dltlinktype[c]);
-	}
-	return;
-}
 /*===========================================================================*/
 static void outputwordlists(void)
 {
@@ -1301,7 +729,7 @@ static void processtacacsppacket(uint32_t restlen, uint8_t *tacacspptr)
 		tacacsplistnew = (tacacsplist_t *)realloc(tacacsplist, (tacacsplistmax + TACACSPLIST_MAX) * TACACSPLIST_SIZE);
 		if (tacacsplistnew == NULL)
 		{
-			printf("failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		tacacsplist = tacacsplistnew;
@@ -1573,7 +1001,7 @@ static void addeapmschapv2hash(uint8_t id, uint8_t mschapv2usernamelen, uint8_t 
 		eapmschapv2hashlistnew = (eapmschapv2hashlist_t *)realloc(eapmschapv2hashlist, (eapmschapv2hashlistmax + EAPMSCHAPV2HASHLIST_MAX) * EAPMSCHAPV2HASHLIST_SIZE);
 		if (eapmschapv2hashlistnew == NULL)
 		{
-			printf("failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		eapmschapv2hashlist = eapmschapv2hashlistnew;
@@ -1692,7 +1120,7 @@ static void addeapleaphash(uint8_t id, uint8_t leapusernamelen, uint8_t *leapuse
 		eapleaphashlistnew = (eapleaphashlist_t *)realloc(eapleaphashlist, (eapleaphashlistmax + EAPLEAPHASHLIST_MAX) * EAPLEAPHASHLIST_SIZE);
 		if (eapleaphashlistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		eapleaphashlist = eapleaphashlistnew;
@@ -1806,7 +1234,7 @@ static void addeapmd5hash(uint8_t id, uint8_t *challenge, uint8_t *response)
 		eapmd5hashlistnew = (eapmd5hashlist_t *)realloc(eapmd5hashlist, (eapmd5hashlistmax + EAPMD5HASHLIST_MAX) * EAPMD5HASHLIST_SIZE);
 		if (eapmd5hashlistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		eapmd5hashlist = eapmd5hashlistnew;
@@ -2457,7 +1885,7 @@ static void addhandshake(uint64_t eaptimegap, uint64_t rcgap, messagelist_t *msg
 			handshakelistnew = (handshakelist_t *)realloc(handshakelist, (handshakelistmax + HANDSHAKELIST_MAX) * HANDSHAKELIST_SIZE);
 			if (handshakelistnew == NULL)
 			{
-				fprintf(stderr, "failed to allocate memory for internal list\n");
+				printError("failed to allocate memory for internal list", 1);
 				exit(EXIT_FAILURE);
 			}
 			handshakelist = handshakelistnew;
@@ -2492,7 +1920,7 @@ static void addhandshake(uint64_t eaptimegap, uint64_t rcgap, messagelist_t *msg
 				handshakelistnew = (handshakelist_t *)realloc(handshakelist, (handshakelistmax + HANDSHAKELIST_MAX) * HANDSHAKELIST_SIZE);
 				if (handshakelistnew == NULL)
 				{
-					fprintf(stderr, "failed to allocate memory for internal list\n");
+					printError("failed to allocate memory for internal list", 1);
 					exit(EXIT_FAILURE);
 				}
 				handshakelist = handshakelistnew;
@@ -2563,7 +1991,7 @@ static void addpmkid(uint64_t timestamp, uint8_t *macclient, uint8_t *macap, uin
 			pmkidlistnew = (pmkidlist_t *)realloc(pmkidlist, (pmkidlistmax + PMKIDLIST_MAX) * PMKIDLIST_SIZE);
 			if (pmkidlistnew == NULL)
 			{
-				fprintf(stderr, "failed to allocate memory for internal list\n");
+				printError("failed to allocate memory for internal list", 1);
 				exit(EXIT_FAILURE);
 			}
 			pmkidlist = pmkidlistnew;
@@ -2589,7 +2017,7 @@ static void addpmkid(uint64_t timestamp, uint8_t *macclient, uint8_t *macap, uin
 				pmkidlistnew = (pmkidlist_t *)realloc(pmkidlist, (pmkidlistmax + PMKIDLIST_MAX) * PMKIDLIST_SIZE);
 				if (pmkidlistnew == NULL)
 				{
-					fprintf(stderr, "failed to allocate memory for internal list\n");
+					printError("failed to allocate memory for internal list", 1);
 					exit(EXIT_FAILURE);
 				}
 				pmkidlist = pmkidlistnew;
@@ -4004,7 +3432,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4053,7 +3481,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4099,7 +3527,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4146,7 +3574,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4217,7 +3645,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4239,7 +3667,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4278,7 +3706,7 @@ static void process80211probe_req(uint64_t proberequesttimestamp, uint8_t *maccl
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4329,7 +3757,7 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4450,7 +3878,7 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4509,7 +3937,7 @@ static void process80211actionmeasurement(uint64_t actiontimestamp, uint8_t *mac
 		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
 		if (aplistnew == NULL)
 		{
-			fprintf(stderr, "failed to allocate memory for internal list\n");
+			printError("failed to allocate memory for internal list", 1);
 			exit(EXIT_FAILURE);
 		}
 		aplist = aplistnew;
@@ -4853,7 +4281,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (caplen < PPI_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read ppi header\n");
+			printError("failed to read ppi header", 0);
 			return;
 		}
 		ppi = (ppi_t *)capptr;
@@ -4863,7 +4291,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (ppi->pph_len > caplen)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read ppi header\n");
+			printError("failed to read ppi header", 0);
 			return;
 		}
 		packetlen = caplen - ppi->pph_len;
@@ -4874,7 +4302,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (caplen < PRISM_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read prism header\n");
+			printError("failed to read prism header", 0);
 			return;
 		}
 		prism = (prism_t *)capptr;
@@ -4888,7 +4316,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 			if (prism->frmlen.data > caplen)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "failed to read prism header\n");
+				printError("failed to read prism header", 0);
 				return;
 			}
 			prism->msglen = caplen - prism->frmlen.data;
@@ -4901,7 +4329,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (caplen < AVS_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read avs header\n");
+			printError("failed to read avs header", 0);
 			return;
 		}
 		avs = (avs_t *)capptr;
@@ -4911,7 +4339,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (avs->len > caplen)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read avs header\n");
+			printError("failed to read avs header", 0);
 			return;
 		}
 		packetlen = caplen - avs->len;
@@ -4922,7 +4350,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (caplen < ETH2_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read ethernet header\n");
+			printError("failed to read ethernet header", 0);
 			return;
 		}
 		processethernetpacket(captimestamp, caplen, capptr);
@@ -4933,7 +4361,7 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 		if (caplen < LOBA_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read loopback header\n");
+			printError("failed to read loopback header", 0);
 			return;
 		}
 		processlobapacket(captimestamp, caplen, capptr);
@@ -4941,14 +4369,16 @@ static void processlinktype(uint64_t captimestamp, uint32_t linktype, uint32_t c
 	}
 	else
 	{
-		fprintf(stdout, "unsupported network type %d\n", linktype);
+		static char* error[300];
+		snprintf(error, 299, "unsupported network type %d", linktype);
+		printError(error, 0);
 		return;
 	}
 
 	if (packetlen < 4)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "failed to read packet\n");
+		printError("failed to read packet", 0);
 		return;
 	}
 	fcs = (fcs_t *)(packetptr + packetlen - 4);
@@ -4982,7 +4412,7 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (res != PCAPHDR_SIZE)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "failed to read pcap header\n");
+		printError("failed to read pcap header", 1);
 		return;
 	}
 
@@ -5015,19 +4445,21 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (pcapfhdr.version_major != PCAP_MAJOR_VER)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "unsupported major pcap version\n");
+		printError("unsupported major pcap version", 1);
 		return;
 	}
 	if (pcapfhdr.version_minor != PCAP_MINOR_VER)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "unsupported minor pcap version\n");
+		printError("unsupported minor pcap version", 1);
 		return;
 	}
 	if (pcapfhdr.snaplen > MAXPACPSNAPLEN)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "detected oversized snaplen (%d)\n", pcapfhdr.snaplen);
+		static char* error[300];
+		snprintf(error, 299, "detected oversized snaplen (%d)", pcapfhdr.snaplen);
+		printError(error, 0);
 	}
 
 	while (1)
@@ -5038,7 +4470,9 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		if (res != PCAPREC_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read pcap packet header for packet %ld\n", rawpacketcount);
+			static char* error[300];
+			snprintf(error, 299, "failed to read pcap packet header for packet %ld", rawpacketcount);
+			printError(error, 0);
 			break;
 		}
 
@@ -5066,7 +4500,9 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (res != pcaprhdr.incl_len)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "failed to read packet %ld\n", rawpacketcount);
+				static char* error[300];
+				snprintf(error, 299, "failed to read packet %ld", rawpacketcount);
+				printError(error, 0);
 				break;
 			}
 		}
@@ -5077,7 +4513,7 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (resseek < 0)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "failed to set file pointer\n");
+				printError("failed to set file pointer", 0);
 				break;
 			}
 			continue;
@@ -5090,16 +4526,10 @@ void processcap(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		}
 	}
 
-	
-
-	//printlinklayerinfo();
 	cleanupmac();
 	outputdeviceinfolist();
 	outputwpalists();
 	outputwordlists();
-	//printcontentinfo();
-	//send_lists();
-	// printf("Process Cap Complete\n");
 	return;
 }
 /*===========================================================================*/
@@ -5255,7 +4685,6 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 
 	magicblockcount = 0;
 	ancientdumpfileformat = false;
-	//fprintf(stdout, "%s %s reading from %s...\n", basename(eigenname), VERSION_TAG, basename(pcapinname));
 	iface = 0;
 	nmealen = 0;
 	memset(&interfaceid, 0, sizeof(int) * MAX_INTERFACE_ID);
@@ -5263,7 +4692,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (fdsize < 0)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "failed to get file size\n");
+		printError("failed to get file size", 2);
 		return;
 	}
 
@@ -5271,7 +4700,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 	if (aktseek < 0)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "failed to set file pointer\n");
+		printError("failed to set file pointer", 1);
 		return;
 	}
 
@@ -5283,7 +4712,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		if (aktseek < 0)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to set file pointer\n");
+			printError("failed to set file pointer", 0);
 			break;
 		}
 		res = read(fd, &pcpngblock, BH_SIZE);
@@ -5294,7 +4723,7 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		if (res != BH_SIZE)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read block header\n");
+			printError("failed to read block header\n", 0);
 			break;
 		}
 		pcapngbh = (block_header_t *)pcpngblock;
@@ -5319,27 +4748,27 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 		if ((blocklen > (2 * MAXPACPSNAPLEN)) || ((blocklen % 4) != 0))
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read pcapng block header\n");
+			printError("failed to read pcapng block header", 0);
 			break;
 		}
 		resseek = lseek(fd, aktseek, SEEK_SET);
 		if (resseek < 0)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to set file pointer\n");
+			printError("failed to set file pointer", 0);
 			break;
 		}
 		res = read(fd, &pcpngblock, blocklen);
 		if ((res < BH_SIZE) || (res != blocklen))
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read pcapng block header\n");
+			printError("failed to read pcapng block header", 0);
 			break;
 		}
 		if (memcmp(&pcpngblock[4], &pcpngblock[blocklen - 4], 4) != 0)
 		{
 			pcapreaderrors++;
-			fprintf(stdout, "failed to read pcapng block header \n");
+			printError("failed to read pcapng block header", 0);
 			break;
 		}
 		if (blocktype == PCAPNGBLOCKTYPE)
@@ -5361,13 +4790,13 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (pcapngshb->major_version != PCAPNG_MAJOR_VER)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "unsupported major pcapng version\n");
+				printError("unsupported major pcapng version", 1);
 				break;
 			}
 			if (pcapngshb->minor_version != PCAPNG_MINOR_VER)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "unsupported minor pcapng version\n");
+				printError("unsupported minor pcapng version", 1);
 				break;
 			}
 			if (pcapngoptionwalk(blocktype, pcapngshb->data, blocklen - SHB_SIZE) != 0)
@@ -5391,12 +4820,16 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (snaplen > MAXPACPSNAPLEN)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "detected oversized snaplen (%d)\n", snaplen);
+				static char* error[300];
+				snprintf(error, 299, "detected oversized snaplen (%d)", snaplen);
+				printError(error, 0);
 			}
 			if (iface >= MAX_INTERFACE_ID)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "maximum of supported interfaces reached: %d\n", iface);
+				static char* error[300];
+				snprintf(error, 299, "maximum of supported interfaces reached: %d", iface);
+				printError(error, 0);
 				continue;
 			}
 			dltlinktype[iface] = pcapngidb->linktype;
@@ -5415,13 +4848,17 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (pcapngpb->caplen > MAXPACPSNAPLEN)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "caplen > MAXSNAPLEN (%d > %d)\n", pcapngpb->caplen, MAXPACPSNAPLEN);
+				static char* error[300];
+				snprintf(error, 299, "caplen > MAXSNAPLEN (%d > %d)", pcapngpb->caplen, MAXPACPSNAPLEN);
+				printError(error, 0);
 				continue;
 			}
 			if (pcapngpb->caplen > blocklen)
 			{
+				static char* error[300];
+				snprintf(error, 299, "caplen > blocklen (%d > %d)", pcapngpb->caplen, blocklen);
+				printError(error, 0);
 				pcapreaderrors++;
-				fprintf(stdout, "caplen > blocklen (%d > %d)\n", pcapngpb->caplen, blocklen);
 				continue;
 			}
 			rawpacketcount++;
@@ -5454,7 +4891,9 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (pcapngepb->interface_id >= iface)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "maximum of supported interfaces reached: %d\n", iface);
+				static char* error[300];
+				snprintf(error, 299, "maximum of supported interfaces reached: %d", iface);
+				printError(error, 0);
 				continue;
 			}
 			timestamppcapng = pcapngepb->timestamp_high;
@@ -5469,19 +4908,25 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			if (pcapngepb->caplen != pcapngepb->len)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "caplen != len (%d != %d)\n", pcapngepb->caplen, pcapngepb->len);
+				static char* error[300];
+				snprintf(error, 299, "caplen != len (%d != %d)", pcapngepb->caplen, pcapngepb->len);
+				printError(error, 0);
 				continue;
 			}
 			if (pcapngepb->caplen > MAXPACPSNAPLEN)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "caplen > MAXSNAPLEN (%d > %d)\n", pcapngepb->caplen, MAXPACPSNAPLEN);
+				static char* error[300];
+				snprintf(error, 299, "caplen > MAXSNAPLEN (%d > %d)", pcapngepb->caplen, MAXPACPSNAPLEN);
+				printError(error, 0);
 				continue;
 			}
 			if (pcapngepb->caplen > blocklen)
 			{
 				pcapreaderrors++;
-				fprintf(stdout, "caplen > blocklen (%d > %d)\n", pcapngepb->caplen, blocklen);
+				static char* error[300];
+				snprintf(error, 299, "caplen > blocklen (%d > %d)", pcapngepb->caplen, blocklen);
+				printError(error, 0);
 				continue;
 			}
 			rawpacketcount++;
@@ -5519,43 +4964,11 @@ void processpcapng(int fd, char *eigenname, char *pcaporgname, char *pcapinname)
 			skippedpacketcount++;
 		}
 	}
-	/* fprintf(stdout, "\ncapture summary\n"
-					"--------------------\n"
-					"version (pcapng).........................: %d.%d\n"
-					"operating system.........................: %s\n"
-					"application..............................: %s\n"
-					"interface name...........................: %s\n"
-					"interface vendor.........................: %02x%02x%02x\n"
-					"openSSL version..........................: %d.%d\n"
-					"weak candidate...........................: %s\n"
-					"MAC ACCESS POINT.........................: %02x%02x%02x%02x%02x%02x (incremented on every new client)\n"
-					"MAC CLIENT...............................: %02x%02x%02x%02x%02x%02x\n"
-					"REPLAYCOUNT..............................: %" PRIu64 "\n"
-					"ANONCE...................................: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n"
-					"SNONCE...................................: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
-			basename(pcaporgname), versionmajor, versionminor,
-			pcapngosinfo, pcapngapplinfo, pcapnghwinfo, pcapngdeviceinfo[0], pcapngdeviceinfo[1], pcapngdeviceinfo[2],
-			opensslversionmajor, opensslversionminor,
-			pcapngweakcandidate,
-			myaktap[0], myaktap[1], myaktap[2], myaktap[3], myaktap[4], myaktap[5],
-			myaktclient[0], myaktclient[1], myaktclient[2], myaktclient[3], myaktclient[4], myaktclient[5],
-			myaktreplaycount,
-			myaktanonce[0], myaktanonce[1], myaktanonce[2], myaktanonce[3], myaktanonce[4], myaktanonce[5], myaktanonce[6], myaktanonce[7],
-			myaktanonce[8], myaktanonce[9], myaktanonce[10], myaktanonce[11], myaktanonce[12], myaktanonce[13], myaktanonce[14], myaktanonce[15],
-			myaktanonce[16], myaktanonce[17], myaktanonce[18], myaktanonce[19], myaktanonce[20], myaktanonce[21], myaktanonce[22], myaktanonce[23],
-			myaktanonce[24], myaktanonce[25], myaktanonce[26], myaktanonce[27], myaktanonce[28], myaktanonce[29], myaktanonce[30], myaktanonce[31],
-			myaktsnonce[0], myaktsnonce[1], myaktsnonce[2], myaktsnonce[3], myaktsnonce[4], myaktsnonce[5], myaktsnonce[6], myaktsnonce[7],
-			myaktsnonce[8], myaktsnonce[9], myaktsnonce[10], myaktsnonce[11], myaktsnonce[12], myaktsnonce[13], myaktsnonce[14], myaktsnonce[15],
-			myaktsnonce[16], myaktsnonce[17], myaktsnonce[18], myaktsnonce[19], myaktsnonce[20], myaktsnonce[21], myaktsnonce[22], myaktsnonce[23],
-			myaktsnonce[24], myaktsnonce[25], myaktsnonce[26], myaktsnonce[27], myaktsnonce[28], myaktsnonce[29], myaktsnonce[30], myaktsnonce[31]); */
-	//printlinklayerinfo();
+
 	cleanupmac();
 	outputdeviceinfolist();
 	outputwpalists();
 	outputwordlists();
-	//printcontentinfo();
-	//send_lists();
-	// printf("Process PCAPNG Complete\n");
 	return;
 }
 /*===========================================================================*/
@@ -5570,20 +4983,21 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 	jtrbasenamedeprecated = pcapinname;
 	if (fd_pcap == -1)
 	{
-		perror("failed to open file");
-		return false;
+		printError("failed to open file", 1);
+		exit(EXIT_FAILURE);
 	}
 	magicnumber = getmagicnumber(fd_pcap);
 	if (magicnumber == 0)
 	{
-		printf("Inccorrect Magic\n");
+		printError("Inccorrect Magic", 1);
+		exit(EXIT_FAILURE);
 	}
 	resseek = lseek(fd_pcap, 0L, SEEK_SET);
 	if (resseek < 0)
 	{
 		pcapreaderrors++;
-		fprintf(stdout, "failed to set file pointer\n");
-		return false;
+		printError("failed to set file pointer", 1);
+		exit(EXIT_FAILURE);
 	}
 	if (magicnumber == PCAPNGBLOCKTYPE)
 	{
@@ -5609,8 +5023,8 @@ static bool processcapfile(char *eigenname, char *pcapinname)
 	}
 	else
 	{
-		fprintf(stdout, "unsupported dump file format: %s\n", pcapinname);
-		return false;
+		printError("unsupported dump file format", 1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* if (pcaptempnameptr != NULL)
@@ -5903,6 +5317,26 @@ static inline void send_lists(void) {
     }
 }
 
+static void printError(char *error, bool fatal) 
+{
+	cJSON *data = cJSON_CreateObject();
+	cJSON *dumptool = cJSON_CreateObject();
+	char *string = NULL;
+
+	cJSON_AddStringToObject(dumptool, "message", error);
+	cJSON_AddBoolToObject(dumptool, "fatal", fatal);
+
+	cJSON_AddItemToObject(data, "ERROR", dumptool);
+
+	string = cJSON_PrintUnformatted(data);
+	cJSON_Delete(data);
+	if (string) 
+    {
+        printf("%s\n", string);
+    }
+	cJSON_free(string);
+}
+
 /*===========================================================================*/
 int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
 {
@@ -5947,11 +5381,8 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 		if (write(fd, pcap_buffer, len) == -1)
 			error("write()");
 
-		// printf("Wrote to file %d bytes.\n", len);
 		off_t location = lseek(fd, 0, SEEK_CUR);
-		// printf( "Current: %ld\n", location);
-		location = lseek(fd, 0, SEEK_SET); // get back to the beginning... this took me so long to debug
-		// printf( "New: %ld\n", location);
+		location = lseek(fd, 0, SEEK_SET);
 	}
 
 	fd_pcap = fd;
@@ -5967,7 +5398,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	char *prefixoutname = prefixname;
 	if (strlen(prefixoutname) > PREFIX_BUFFER_MAX)
 	{
-		fprintf(stderr, "prefix must be < %d\n", PATH_MAX - 12);
+		static char* error[300];
+		snprintf(error, 299, "prefix must be < %d", PATH_MAX - 12);
+		printError(error, 1);
 		exit(EXIT_FAILURE);
 	}
 
@@ -6040,7 +5473,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_pmkideapol = fopen(pmkideapoloutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", pmkideapoloutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s", pmkideapoloutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6048,7 +5483,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_pmkideapolclient = fopen(pmkidclientoutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", pmkidclientoutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s\n", pmkidclientoutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6056,7 +5493,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_essid = fopen(essidoutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", essidoutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s\n", essidoutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6064,7 +5503,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_identity = fopen(identityoutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", identityoutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s\n", identityoutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6072,7 +5513,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_username = fopen(usernameoutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", usernameoutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s\n", usernameoutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -6080,7 +5523,9 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	{
 		if ((fh_deviceinfo = fopen(deviceinfooutname, "a")) == NULL)
 		{
-			fprintf(stdout, "error opening file %s: %s\n", deviceinfooutname, strerror(errno));
+			static char* error[300];
+			snprintf(error, 299, "error opening file %s: %s\n", deviceinfooutname, strerror(errno));
+			printError(error, 1);
 			exit(EXIT_FAILURE);
 		}
 	}

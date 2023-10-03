@@ -504,6 +504,8 @@ typedef struct tacacsplist_s tacacsplist_t;
 #define	TACACSPLIST_SIZE (sizeof(tacacsplist_t))
 /*===========================================================================*/
 
+static void printError(char *error, bool fatal);
+
 #ifdef __cplusplus
 // this opens an extern "C" block, but only if being included for a C++ compile
 //  if this is being included in a C compile, the extern "C" bits won't be seen

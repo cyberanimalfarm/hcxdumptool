@@ -388,6 +388,7 @@ cJSON* clientlist_jsonify(clientlist_t *client);
 
 static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n);
 static bool setup_pcap_buffer();
+static void printError(char *error, bool fatal);
 
 typedef struct
 {
@@ -396,8 +397,6 @@ typedef struct
 } pcap_buffer_t;
 
 #ifdef __cplusplus
-// this opens an extern "C" block, but only if being included for a C++ compile
-//  if this is being included in a C compile, the extern "C" bits won't be seen
 extern "C" {
 #endif
 
@@ -405,6 +404,5 @@ pcap_buffer_t* hcx(char* iname, char* target_mac, char* channel_list);
 
 
 #ifdef __cplusplus
-// close the extern "C" block, but only if we started it in the first place
 }
 #endif
