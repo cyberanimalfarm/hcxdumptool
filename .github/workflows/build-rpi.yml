@@ -1,4 +1,4 @@
-name: Build RPi (CI)
+name: Build RPi ARM (CI)
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 jobs:
   build:
 
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, ARM]
 
     steps:
     - uses: actions/checkout@v3
