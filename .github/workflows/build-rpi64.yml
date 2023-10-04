@@ -1,0 +1,19 @@
+name: Build RPI (aarch64) (CI)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: [self-hosted, Linux, ARM64]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: clean
+      run: make cleanall
+    - name: make
+      run: make
