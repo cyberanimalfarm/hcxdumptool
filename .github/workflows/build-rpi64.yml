@@ -1,4 +1,4 @@
-name: Build RPI (aarch64) (CI)
+name: Build RPI ARM64 (CI)
 
 on:
   push:
