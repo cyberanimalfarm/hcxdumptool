@@ -17,3 +17,7 @@ jobs:
       run: make cleanall
     - name: make
       run: make
+    - name: Upload Build
+      uses: actions/upload-artifact@v3.1.3
+      with:
+        name: net-nomad-hcx_aarch64
