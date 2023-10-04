@@ -938,7 +938,7 @@ static inline void send_80211_reassociationrequest(size_t i)
 	reassociationrequest->capability = 0x431;
 	reassociationrequest->listen_interval = 0x14;
 	memcpy(reassociationrequest->current_macap, (aplist + i)->macap, ETH_ALEN);
-	ii += sizeof(ieee80211_reassoc_req_t);
+	ii += sizeof(ieee80211_reassoc_req_t) -1;
 	wltxnoackbuffer[ii++] = 0;
 	wltxnoackbuffer[ii++] = (aplist + i)->ie.essidlen;
 	memcpy(&wltxnoackbuffer[ii], (aplist + i)->ie.essid, (aplist + i)->ie.essidlen);
@@ -3943,7 +3943,7 @@ bool generate_filter(char *dev, char *addr)
 	static struct sock_filter *bpfptr;
 
 	char filter_exp[125];
-	
+
 	// TODO: Handle many interfaces all at once.
 	snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
 
