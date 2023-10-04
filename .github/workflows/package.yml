@@ -44,7 +44,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ jobs.pre-release.outputs.upload_url }}
+        upload_url: ${{ needs.pre-release.outputs.upload_url }}
         asset_path: net-nomad-hcx_x86_64
         asset_name: net-nomad-hcx_x86_64
         asset_content_type: application/x-binary
@@ -63,7 +63,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ jobs.pre-release.outputs.upload_url }}
+        upload_url: ${{ needs.pre-release.outputs.upload_url }}
         asset_path: net-nomad-hcx_armhf
         asset_name: net-nomad-hcx_armhf
         asset_content_type: application/x-binary
@@ -82,7 +82,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ jobs.pre-release.outputs.upload_url }}
+        upload_url: ${{ needs.pre-release.outputs.upload_url }}
         asset_path: net-nomad-hcx_aarch64
         asset_name: net-nomad-hcx_aarch64
         asset_content_type: application/x-binary
