@@ -1,0 +1,19 @@
+name: Build RPi ARM (CI)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: [self-hosted, Linux, ARM]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: clean
+      run: make cleanall
+    - name: make
+      run: make
