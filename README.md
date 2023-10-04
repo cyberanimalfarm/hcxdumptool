@@ -104,12 +104,21 @@ From a completely fresh Raspberry Pi OS Bullseye Lite you need to update OpenSSL
 
 Tested on both Raspios Bullseye Lite 32 and 64bit.
 
+Because it's confusing:
+
+RPi 3/4 (and probably 5) will always run a 64bit Kernel. However, the userland can be either 32 or 64 bit. Many utilities will report ONLY the kernel bitness, which may confuse you. You can determine the actual bitness of your userland by running the following command.
+
+```
+getconf LONG_BIT
+```
+
 Instructions:
 ```bash
 # Install deps
 sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
 
 # Install new openssl
+# I understand the OS relies heavily on OpenSSL and updating it COULD fuck up the OS. However, using this method I haven't seen anything get fucked up.
 export VER=3.1.3 ##This was the latest stable at the time of writing, as far as I know anything 3+ should be good. Ref: https://www.openssl.org/source/
 cd /usr/local/src/
 sudo wget https://www.openssl.org/source/openssl-$VER.tar.gz 
@@ -117,12 +126,12 @@ sudo tar -xf openssl-$VER.tar.gz
 cd openssl-$VER/
 
 # Determine GCC bitness. Basically the Kernel will likely be 64 bit, but userspace could be 32 or 64.
-realpath $(which gcc)
+getconf LONG_BIT
 
-# if aarch64 in filename:
+# if 64
 sudo ./config --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
 
-# otherwise:
+# if 32:
 sudo ./config linux-armv4 --prefix=/usr/local/ssl --openssldir=/usr/local/ssl shared zlib
 
 sudo make # This will take a really long time. Like go to the gym and come back long.
@@ -150,7 +159,6 @@ sudo make install
 git clone <this repo>
 cd net-nomad-hcx
 make
-cp net-nomad-hcx /usr/local/bin
 ```
 
 ### Clean Everything (for rebuild)
