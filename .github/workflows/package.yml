@@ -1,4 +1,4 @@
-name: Build RPi ARM (CI)
+name: Package and Release
 
 on:
   push:
