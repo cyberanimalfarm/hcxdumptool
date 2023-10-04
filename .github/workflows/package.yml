@@ -1,0 +1,92 @@
+name: Build RPi ARM (CI)
+
+on:
+  push:
+    branches: [ "master" ]
+    tags:
+      - "v*"
+
+jobs:
+  create_release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+
+  build_x86:
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Instal Deps
+      run: sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
+    - name: Get / Install cJSON
+      run: |
+       git clone https://github.com/DaveGamble/cJSON
+       cd cJSON
+       mkdir build; cd build
+       cmake ../ -DBUILD_SHARED_LIBS=Off
+       make
+       sudo make install
+       cd ../
+    - name: clean
+      run: make cleanall
+    - name: make
+      run: make
+    - name: Upload
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: net-nomad-hcx_x86_64
+        asset_name: net-nomad-hcx_x86_64
+        asset_content_type: application/x-binary
+        
+  build_arm:
+    needs: create_release
+    runs-on: [self-hosted, Linux, ARM]
+    steps:
+    - uses: actions/checkout@v3
+    - name: clean
+      run: make cleanall
+    - name: make
+      run: make
+    - name: Upload
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: net-nomad-hcx_armhf
+        asset_name: net-nomad-hcx_armhf
+        asset_content_type: application/x-binary
+        
+  build_arm64:
+    needs: create_release
+    runs-on: [self-hosted, Linux, ARM64]
+    steps:
+    - uses: actions/checkout@v3
+    - name: clean
+      run: make cleanall
+    - name: make
+      run: make
+    - name: Upload
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: net-nomad-hcx_aarch64
+        asset_name: net-nomad-hcx_aarch64
+        asset_content_type: application/x-binary
+
