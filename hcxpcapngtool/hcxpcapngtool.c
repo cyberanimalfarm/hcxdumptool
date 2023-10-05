@@ -323,6 +323,7 @@ static bool essidfile = false;
 static bool identityfile = false;
 static bool usernamefile = false;
 static bool deviceinfofile = false;
+static bool argsfile = false;
 
 
 static bool data_compressed = false;
@@ -5140,7 +5141,7 @@ static bool evpinitwpa(void)
 }
 /*===========================================================================*/
 
-void write_archive(const char *outname, const char **filename, int files_count)
+void write_archive(const char *outname, char **filename, int files_count)
 {
 	struct archive *a;
 	struct archive_entry *entry;
@@ -5338,7 +5339,7 @@ static void printError(char *error, bool fatal)
 }
 
 /*===========================================================================*/
-int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
+int pcapngtool(const char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
 {
 	static int exitcode;
 
@@ -5350,6 +5351,7 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	static char *identityoutname;
 	static char *deviceinfooutname;
 	static char *tarfileoutname;
+	static char *argsfileoutname;
 	static char *gzfileoutname;
 
 	static const char *pcapngsuffix = ".pcapng";
@@ -5359,6 +5361,7 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	static const char *identitysuffix = ".identity";
 	static const char *usernamesuffix = ".username";
 	static const char *deviceinfosuffix = ".deviceinfo";
+	static const char *argsfilesuffix = ".args";
 	static const char *tarfilesuffix = ".tar.gz";
 
 	static char pcapngprefix[PATH_MAX];
@@ -5368,6 +5371,7 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 	static char identityprefix[PATH_MAX];
 	static char usernameprefix[PATH_MAX];
 	static char deviceinfoprefix[PATH_MAX];
+	static char argsfileprefix[PATH_MAX];
 	static char tarfileprefix[PATH_MAX];
 
 	struct timeval tv;
@@ -5452,6 +5456,10 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 		strncpy(deviceinfoprefix, prefixoutname, PREFIX_BUFFER_MAX);
 		strncat(deviceinfoprefix, deviceinfosuffix, PREFIX_BUFFER_MAX);
 		deviceinfooutname = deviceinfoprefix;
+
+		strncpy(argsfileprefix, prefixoutname, PREFIX_BUFFER_MAX);
+		strncat(argsfileprefix, argsfilesuffix, PREFIX_BUFFER_MAX);
+		argsfileoutname = argsfileprefix;
 
 		strncpy(tarfileprefix, prefixoutname, PREFIX_BUFFER_MAX);
 		strncat(tarfileprefix, tarfilesuffix, PREFIX_BUFFER_MAX);
@@ -5638,6 +5646,20 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 			}
 		}
 	}
+	if (argsfileoutname != NULL)
+	{
+		if (stat(argsfileoutname, &statinfo) == 0)
+		{
+			if (statinfo.st_size == 0)
+			{
+				remove(argsfileoutname);
+			}
+			else
+			{
+				argsfile = true;
+			}
+		}
+	}
 
 	// Tarfiles
 
@@ -5687,6 +5709,13 @@ int pcapngtool(char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePca
 		{
 			files[files_total] = (char*)malloc(sizeof(char) * (strlen(deviceinfooutname) + 1 ) );
 			strcpy(files[files_total], deviceinfooutname);
+			//printf("%d: %s\n", files_total, files[files_total]);
+			files_total += 1;
+		}
+		if (argsfile)
+		{
+			files[files_total] = (char*)malloc(sizeof(char) * (strlen(argsfileoutname) + 1 ) );
+			strcpy(files[files_total], argsfileoutname);
 			//printf("%d: %s\n", files_total, files[files_total]);
 			files_total += 1;
 		}

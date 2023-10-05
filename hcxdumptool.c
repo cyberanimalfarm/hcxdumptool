@@ -3942,10 +3942,34 @@ bool generate_filter(char *dev, char *addr)
 	struct bpf_program filter;
 	static struct sock_filter *bpfptr;
 
-	char filter_exp[125];
+	char filter_exp[1024] = "";
 
-	// TODO: Handle many interfaces all at once.
-	snprintf(filter_exp, sizeof filter_exp, "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s or wlan addr3 ff:ff:ff:ff:ff:ff", addr, addr, addr);
+	static size_t targets_size;
+	static char *ufld = NULL;
+	static char *tokptr = NULL;
+
+	const char *targets[50];
+
+	ufld = strdup(addr);
+	tokptr = strtok(ufld, ",");
+	while (tokptr != NULL)
+	{
+		targets[targets_size] = tokptr;
+		targets_size+=1;
+		tokptr = strtok(NULL, ",");
+	}
+
+
+	for (int i = 0; i<targets_size; i++) {
+		char line[250];
+		if (i == 0)	{	
+			snprintf(line, sizeof(line), "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s ", targets[i], targets[i], targets[i]);
+		} else {
+			snprintf(line, sizeof(line), "or wlan addr1 %s or wlan addr2 %s or wlan addr3 %s ", targets[i], targets[i], targets[i]);
+		}
+		strncat(filter_exp, line, sizeof(line));
+	}
+	strncat(filter_exp, "or wlan addr3 ff:ff:ff:ff:ff:ff", sizeof(filter_exp));
 
 	bpf_u_int32 subnet_mask, ip;
 
@@ -3969,6 +3993,8 @@ bool generate_filter(char *dev, char *addr)
 		printError(error, 1);
 		exit(EXIT_FAILURE);
 	}
+
+	free(ufld);
 
 	struct bpf_insn *insn;
 	insn = filter.bf_insns;
@@ -4161,7 +4187,7 @@ static void printError(char *error, bool fatal)
 	cJSON_free(string);
 }
 
-pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
+pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channel_list)
 {
 	// Setup options
 	static u8 exiteapolflag = 0;				// Did we exit because of eapol needs being met? (damn i hope so)
@@ -4170,7 +4196,6 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
 	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
 	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
-	static char *pcapngoutname = "test.pcapng"; // Pass to entrypoint (standard timestamp format, probably... or even better... ditch and keep the data in memory for passing directly to pcapngtool?
 
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;
@@ -4181,13 +4206,6 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	ifaktindex = if_nametoindex(iname);
 	strncpy(ifaktname, iname, IF_NAMESIZE - 1);
 
-	// This is the most actual work I've had to do on this project so far
-	if (generate_filter(iname, target_mac) == false)
-	{
-		errorcount++;
-		printError("failed to generate BPF", 1);
-		exit(EXIT_FAILURE);
-	}
 
 	// Grab channel from arg
 	userchannellistname = channel_list;
@@ -4302,6 +4320,13 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 		printError("failed to arm interface", 1);
 		goto byebye;
 	}
+	// This is the most actual work I've had to do on this project so far
+	if (generate_filter(iname, target_mac) == false)
+	{
+		errorcount++;
+		printError("failed to generate BPF", 1);
+		exit(EXIT_FAILURE);
+	}
 	if (essidlistname != NULL)
 		read_essidlist(essidlistname);
 	if (setup_pcap_buffer() == false) {
@@ -4331,7 +4356,7 @@ pcap_buffer_t* hcx(char *iname, char *target_mac, char *channel_list)
 	tspecifo.tv_sec = 5;
 	tspecifo.tv_nsec = 0;
 	if (bpf.len == 0) {
-		printError("BPF Error.", 1);
+		printError("BPF error - length 0", 1);
 		exit(EXIT_FAILURE);
 	}
 	nanosleep(&tspecifo, &tspeciforem);

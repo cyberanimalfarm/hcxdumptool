@@ -1,29 +1,46 @@
 # net-nomad-hcx
 
-A gutted (and combined) hcxdumptool & hcxpcapngtool v6.3.1 that builds into a static object (for including in your project).
+A gutted (and combined) hcxdumptool & hcxpcapngtool v6.3.1 that builds into a static object (for including in your project), and also has a C++ starter for you to use.
 
-Writes data in realtime to stdout in JSON format.
+o Writes data in realtime to stdout in JSON format.
+o When capture is complete writes relevant files to disk ready for hashcat.
+o Easy to work with as a subprocess.
 
-When capture is complete writes relevant files to disk ready for hashcat.
-
-Easy to work with as a subprocess.
-
+If you would prefer to just download the pre-compiled binaries, check the Releases for x86_64, armhf, and aarch64 (both build on Rpi).
 
 ## Usage + Output
 
-```bash
-usage: ./net-nomad-hcx <interface> <target_mac> [channels_to_scan]
-   ex: ./net-nomad-hcx wlan1 11:22:33:44:55:66 1a,6a,11a
-        o Default channels: 1a,6a,11a
-        o Unsupported channels will be ignored.
-        o Important notice: channel numbers are not unique and
-          it is mandatory to add band information to the channel number (e.g. 12a)
-              band a: NL80211_BAND_2GHZ
-              band b: NL80211_BAND_5GHZ
-              band c: NL80211_BAND_6GHZ
-              band d: NL80211_BAND_60GHZ
-
+Example Usage:
 ```
+sudo ../net-nomad-hcx_x86_64 panda0 74acb9ef9293 40:9b:cd:ab:1a:bc 6c-99-61-db-cb-86 -c 1a,6a,11a
+{ 1 }  {--------2---------}  {-3-}   {-----------------------4---------------------}  {-----6----}
+
+1. Run as root
+2. The binary... duh
+3. The interface to use - must support monitor mode and packet injection, at9k_htc or rt2800 pref.)
+4. The targets we want to go after, must include atleast one. All three formats valid.
+5. The channels we want to "hop" across. Unsupported channels will be ignored.
+*** Important notice: channel numbers are not unique and it is mandatory to add band information to the channel number (e.g. 12a)
+    band a: NL80211_BAND_2GHZ
+    band b: NL80211_BAND_5GHZ
+    band c: NL80211_BAND_6GHZ
+    band d: NL80211_BAND_60GHZ
+```
+
+Help:
+```bash
+╰─➤  sudo ../net-nomad-hcx_x86_64 -h
+WiFi attack tool based on the HCX Dump Tool engine.
+Usage:
+  NET NOMAD HCX [OPTION...] <interface> <target> <target> <target>...
+
+  -c, --channels arg  Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a
+  -n, --notar         Instructs NN to NOT create Tarfile of all output files | Default: false
+  -p, --pcapng        Instructs NN to produce PCAP-NG file | Default: false
+  -h, --help          Display Help
+```
+
+NOTE: You really probably don't want to scan a lot of channels. This isn't a survey tool, it's a target attack tool. The BPF set by the "targets" will mean that you are REALLY likely to not see a lot of packets because we are literally not seeing anything unless it matches the BPF. Use the LB, HB, and ALL options sparingly and only when you absolutely do not know the channel your target will be on.
 
 Output will be a "waterfall" of individual json lines, seperated by \n.
 
@@ -32,20 +49,18 @@ To end collection you send a SIGINT (CTRL+C). This will automatically pass the c
 Example output:
 
 ```json
-{"dumptool":{"aplist":[{"tsakt":1696300478,"tshold1":1696300478,"tsauth":1696300472,"count":32,"macap":[116,172,185,239,146,147],"macclient":[255,255,255,255,255,255],"status":6}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696300479,"tshold1":1696300478,"tsauth":1696300478,"count":13,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696300480,"tshold1":1696300478,"tsauth":1696300478,"count":3,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696300481,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696300482,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696300483,"tshold1":1696300478,"tsauth":1696300478,"count":0,"macap":[116,172,185,239,146,147],"macclient":[72,176,45,100,119,82],"status":31}],"clientlist":[]}}
-^C 
-{"pcaptool":{"interface_id":1,"raw_packet_count":48,"skipped_packet_count":0,"fcs_frame_count":48,"band24_count":48,"band5_count":0,"band6_count":0,"wds_count":0,"device_info_count":0,"essid_count":6,"beacon_count":1,"beacon_count_24":1,"beacon_count_5":0,"probe_request_undirected_count":5,"probe_request_directed_count":0,"probe_response_count":1,"deauthentication_count":0,"disassociation_count":0,"authentication_count":1,"auth_open_system_count":1,"auth_shared_key_count":0,"association_request_count":0,"username_count":0,"identity_count":0,"eapol_m1_count":40,"eapol_m2_count":0,"eapol_m3_count":0,"eapol_m4_count":0,"eapol_m4_zeroed_count":0,"eapol_mp_count":0,"zeroed_eapol_psk_count":0,"zeroed_eapol_pmk_count":0,"eapol_mp_bestcount":0,"eapol_apless_count":0,"eapol_written_count":0,"eapolnc_written_count":0,"pmkid_best_count":0,"pmkid_rogue_count":0,"pmkid_written_count":0,"pmkid_client_written_count":0,"total_written":0,"timestamp_minimum":"10.02.2023 22:34:38","timestamp_maximum":"10.02.2023 22:34:43","timestamp_total":5,"22000_exported":0,"22000client_exported":0,"essid_exported":1,"identity_exported":0,"username_exported":0,"deviceinfo_exported":0,"pcapng_exported":0,"files_compressed":1}}
+{"ARGS": { "interface": "panda0","file_prefix": "NN-20231004-22-55-26","targets": "74acb9ef9293,409bcdab1abc,6c9961dbcb86,3a180a84ef20", "channels": "1a,6a,11a","tarfile": "true","pcapng": "false"}}
+{"dumptool":{"aplist":[{"tsakt":1696474532,"tshold1":1696474532,"tsauth":1696474526,"count":32,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":6}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696474533,"tshold1":1696474532,"tsauth":1696474533,"count":0,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":31}],"clientlist":[]}}
+{"dumptool":{"aplist":[{"tsakt":1696474534,"tshold1":1696474532,"tsauth":1696474533,"count":0,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":31}],"clientlist":[]}}
+^C{"pcaptool":{"interface_id":1,"raw_packet_count":31,"skipped_packet_count":0,"fcs_frame_count":0,"band24_count":31,"band5_count":0,"band6_count":0,"wds_count":0,"device_info_count":1,"essid_count":3,"beacon_count":3,"beacon_count_24":3,"beacon_count_5":0,"probe_request_undirected_count":0,"probe_request_directed_count":0,"probe_response_count":3,"deauthentication_count":0,"disassociation_count":0,"authentication_count":3,"auth_open_system_count":3,"auth_shared_key_count":0,"association_request_count":0,"username_count":0,"identity_count":0,"eapol_m1_count":22,"eapol_m2_count":0,"eapol_m3_count":0,"eapol_m4_count":0,"eapol_m4_zeroed_count":0,"eapol_mp_count":0,"zeroed_eapol_psk_count":0,"zeroed_eapol_pmk_count":0,"eapol_mp_bestcount":0,"eapol_apless_count":0,"eapol_written_count":0,"eapolnc_written_count":0,"pmkid_best_count":0,"pmkid_rogue_count":0,"pmkid_written_count":0,"pmkid_client_written_count":0,"total_written":0,"timestamp_minimum":"10.04.2023 22:55:32","timestamp_maximum":"10.04.2023 22:55:35","timestamp_total":3,"22000_exported":0,"22000client_exported":0,"essid_exported":1,"identity_exported":0,"username_exported":0,"deviceinfo_exported":1,"pcapng_exported":0,"files_compressed":1}}
 ```
+
+Output will ALWAYS be an "ARGS" json object (with the args you used to run the program, including the ones you didn't specify) a waterfall of "dumptool", and then the final "pcaptool" output with the results of your usage.
 
 Errors will also be in JSON format:
 
-```
-sudo ./net-nomad-hcx wlan1 74acb9ef9293 6a # wlan1 interface doesn't exist.
+```json
 {"ERROR":{"message":"Could not open wlan1 - wlan1: No such device exists (SIOCGIFHWADDR: No such device)","fatal":true}}
 {"ERROR":{"message":"failed to arm interface","fatal":true}}
 {"ERROR":{"message":"Incorrect Magic","fatal":true}}
@@ -67,6 +82,7 @@ libssl-dev
 libarchive-dev 
 libbz2-dev 
 liblzma-dev 
+libfmt-dev
 cmake
 cJSON (https://github.com/DaveGamble/cJSON) Built statically (-DBUILD_SHARED_LIBS=Off flag for cmake)
 openssl 3+
@@ -80,7 +96,7 @@ Tested on Ubunutu 22.04
 
 Instructions:
 ```bash
-sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev libfmt-dev cmake
 # Build cJSON
 cd
 git clone https://github.com/DaveGamble/cJSON
@@ -115,7 +131,7 @@ getconf LONG_BIT
 Instructions:
 ```bash
 # Install deps
-sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev libfmt-dev cmake
 
 # Install new openssl
 # I understand the OS relies heavily on OpenSSL and updating it COULD fuck up the OS. However, using this method I haven't seen anything get fucked up.

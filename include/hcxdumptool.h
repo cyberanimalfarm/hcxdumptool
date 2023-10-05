@@ -400,7 +400,7 @@ typedef struct
 extern "C" {
 #endif
 
-pcap_buffer_t* hcx(char* iname, char* target_mac, char* channel_list);
+pcap_buffer_t* hcx(const char* iname, const char* target_mac, const char* channel_list);
 
 
 #ifdef __cplusplus
