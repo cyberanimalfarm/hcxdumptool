@@ -33,11 +33,12 @@ Help:
 WiFi attack tool based on the HCX Dump Tool engine.
 Usage:
   NET NOMAD HCX [OPTION...] <interface> <target> <target> <target>...
-
   -c, --channels arg  Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a
   -n, --notar         Instructs NN to NOT create Tarfile of all output files | Default: false
   -p, --pcapng        Instructs NN to produce PCAP-NG file | Default: false
+  -f, --file arg      Path to file containing target MAC addresses, one per line
   -h, --help          Display Help
+
 ```
 
 NOTE: You really probably don't want to scan a lot of channels. This isn't a survey tool, it's a target attack tool. The BPF set by the "targets" will mean that you are REALLY likely to not see a lot of packets because we are literally not seeing anything unless it matches the BPF. Use the LB, HB, and ALL options sparingly and only when you absolutely do not know the channel your target will be on.
