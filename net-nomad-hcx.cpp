@@ -23,6 +23,23 @@ void removeCharsFromString(string &str, char* charsToRemove) {
    }
 }
 
+std::vector<std::string> readLinesFromFile(const std::string &filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open the file!");
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(file, line)) {
+        lines.push_back(line);
+    }
+
+    file.close();
+    return lines;
+}
+
+
 // Join a vector<string> into a comma-delimitted string
 string join_string(vector<string> vec) {
     string s;
@@ -67,6 +84,7 @@ int main(int argc, char **argv) {
         ("c,channels", "Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a",cxxopts::value<vector<string>>())
         ("n,notar", "Instructs NN to NOT create Tarfile of all output files | Default: false",cxxopts::value<bool>()->default_value("false"))
         ("p,pcapng", "Instructs NN to produce PCAP-NG file | Default: false",cxxopts::value<bool>()->default_value("false"))
+        ("f,file", "Path to file containing target MAC addresses, one per line", cxxopts::value<string>())
         ("h,help", "Display Help")
     ;
 
@@ -84,15 +102,51 @@ int main(int argc, char **argv) {
         //print_usage(argv[0]);
         exit(0);
     }
+
+    // Check for conflicting arguments
+    if (parser.count("file") && parser.count("targets")) {
+        std::cout << "{{\"ERROR\":{{\"message\":\"Conflicting arguments: cannot use both -f/--file and -t/--targets together.\",\"fatal\":true}}}}" << std::endl;
+        exit(1);
+    }
+
+    vector<string> targets;
+
+    // Check for targets option
+    if (parser.count("targets")) {
+        targets = parser["targets"].as<vector<string>>();
+    }
+
+    // Check for file option
+    if (parser.count("file")) {
+        std::string filePath = parser["file"].as<string>();
+        try {
+            targets = readLinesFromFile(filePath);  // Set the targets vector with MAC addresses from the file
+        } catch (const std::exception &e) {
+            std::cout << "{{\"ERROR\":{{\"message\":\"" << e.what() << "\",\"fatal\":true}}}}" << std::endl;
+            exit(1);
+        }
+    }
+
+    // Ensure that targets are provided
+    if (targets.empty()) {
+        std::cout << "{{\"ERROR\":{{\"message\":\"No targets provided. Use either -t/--targets or -f/--file.\",\"fatal\":true}}}}" << std::endl;
+        exit(1);
+    }
     
     string iface = parser["interface"].as<string>();
     
-    vector<string> targets = parser["targets"].as<vector<string>>();
+    // vector<string> targets = parser["targets"].as<vector<string>>();
 
     if(targets.size() > 50) {
         cout << "{{\"ERROR\":{{\"message\":\"Too many targets. Max is 50\",\"fatal\":true}}}}" << endl;
         exit(1);
     }
+
+
+if (targets.size() > 50) {
+    cout << "{{\"ERROR\":{{\"message\":\"Too many targets. Max is 50\",\"fatal\":true}}}}" << endl;
+    exit(1);
+}
 
     vector<string> channels;
     if (parser.count("channels")) {
