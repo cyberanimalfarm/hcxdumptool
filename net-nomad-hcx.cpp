@@ -23,6 +23,7 @@ void removeCharsFromString(string &str, char* charsToRemove) {
    }
 }
 
+// Read target macs from a file
 std::vector<std::string> readLinesFromFile(const std::string &filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -95,8 +96,7 @@ int main(int argc, char **argv) {
 
     auto parser = options.parse(argc, argv);
 
-    if (parser.count("help"))
-    {
+    if (parser.count("help")) {
         std::cout << options.help() << std::endl;
 
         //print_usage(argv[0]);
@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+    // Initialize targets variable
     vector<string> targets;
 
     // Check for targets option
@@ -132,22 +133,18 @@ int main(int argc, char **argv) {
         std::cout << "{{\"ERROR\":{{\"message\":\"No targets provided. Use either -t/--targets or -f/--file.\",\"fatal\":true}}}}" << std::endl;
         exit(1);
     }
-    
-    string iface = parser["interface"].as<string>();
-    
-    // vector<string> targets = parser["targets"].as<vector<string>>();
+
+     // vector<string> targets = parser["targets"].as<vector<string>>();
 
     if(targets.size() > 50) {
         cout << "{{\"ERROR\":{{\"message\":\"Too many targets. Max is 50\",\"fatal\":true}}}}" << endl;
         exit(1);
     }
 
-
-if (targets.size() > 50) {
-    cout << "{{\"ERROR\":{{\"message\":\"Too many targets. Max is 50\",\"fatal\":true}}}}" << endl;
-    exit(1);
-}
-
+    
+    string iface = parser["interface"].as<string>();
+    
+   
     vector<string> channels;
     if (parser.count("channels")) {
         channels = parser["channels"].as<vector<string>>();
