@@ -29,14 +29,15 @@ sudo ../net-nomad-hcx_x86_64 panda0 74acb9ef9293 40:9b:cd:ab:1a:bc 6c-99-61-db-c
 
 Help:
 ```bash
-╰─➤  sudo ../net-nomad-hcx_x86_64 -h
+╰─➤  sudo ./net-nomad-hcx_x86_64 -h
 WiFi attack tool based on the HCX Dump Tool engine.
 Usage:
   NET NOMAD HCX [OPTION...] <interface> <target> <target> <target>...
+  -f, --file arg      Path to file containing target MAC addresses, one per line
   -c, --channels arg  Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a
   -n, --notar         Instructs NN to NOT create Tarfile of all output files | Default: false
   -p, --pcapng        Instructs NN to produce PCAP-NG file | Default: false
-  -f, --file arg      Path to file containing target MAC addresses, one per line
+  -r, --clear         Instructs NN to clear screen before printing a new status | Default: false
   -h, --help          Display Help
 
 ```
@@ -49,12 +50,130 @@ To end collection you send a SIGINT (CTRL+C). This will automatically pass the c
 
 Example output:
 
+First will print the args:
+
+** Made pretty for your viewing pleasure, will not print with newlines.
 ```json
-{"ARGS": { "interface": "panda0","file_prefix": "NN-20231004-22-55-26","targets": "74acb9ef9293,409bcdab1abc,6c9961dbcb86,3a180a84ef20", "channels": "1a,6a,11a","tarfile": "true","pcapng": "false"}}
-{"dumptool":{"aplist":[{"tsakt":1696474532,"tshold1":1696474532,"tsauth":1696474526,"count":32,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":6}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696474533,"tshold1":1696474532,"tsauth":1696474533,"count":0,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":31}],"clientlist":[]}}
-{"dumptool":{"aplist":[{"tsakt":1696474534,"tshold1":1696474532,"tsauth":1696474533,"count":0,"macap":[108,153,97,219,203,134],"macclient":[255,255,255,255,255,255],"status":31}],"clientlist":[]}}
-^C{"pcaptool":{"interface_id":1,"raw_packet_count":31,"skipped_packet_count":0,"fcs_frame_count":0,"band24_count":31,"band5_count":0,"band6_count":0,"wds_count":0,"device_info_count":1,"essid_count":3,"beacon_count":3,"beacon_count_24":3,"beacon_count_5":0,"probe_request_undirected_count":0,"probe_request_directed_count":0,"probe_response_count":3,"deauthentication_count":0,"disassociation_count":0,"authentication_count":3,"auth_open_system_count":3,"auth_shared_key_count":0,"association_request_count":0,"username_count":0,"identity_count":0,"eapol_m1_count":22,"eapol_m2_count":0,"eapol_m3_count":0,"eapol_m4_count":0,"eapol_m4_zeroed_count":0,"eapol_mp_count":0,"zeroed_eapol_psk_count":0,"zeroed_eapol_pmk_count":0,"eapol_mp_bestcount":0,"eapol_apless_count":0,"eapol_written_count":0,"eapolnc_written_count":0,"pmkid_best_count":0,"pmkid_rogue_count":0,"pmkid_written_count":0,"pmkid_client_written_count":0,"total_written":0,"timestamp_minimum":"10.04.2023 22:55:32","timestamp_maximum":"10.04.2023 22:55:35","timestamp_total":3,"22000_exported":0,"22000client_exported":0,"essid_exported":1,"identity_exported":0,"username_exported":0,"deviceinfo_exported":1,"pcapng_exported":0,"files_compressed":1}}
+{
+  "ARGS": {
+    "interface": "panda0",
+    "file_prefix": "NN-20231005-23-47-07",
+    "targets": "74acb9ef9293",
+    "channels": "6a",
+    "tarfile": "true",
+    "pcapng": "false"
+  }
+}```
+
+Then will print the "status" output: 
+
+** Made pretty for your viewing pleasure, will not print with newlines.
+```json
+{
+  "dumptool": {
+    "aplist": [
+      {
+        "tsakt": 1696564039,
+        "tshold1": 1696564033,
+        "tsauth": 1696564034,
+        "count": 0,
+        "macap": "74acb9ef9293",
+        "macclient": "d48a3bf532e3",
+        "status": 31,
+        "AP_IN_RANGE": true,
+        "ESSID_COLLECTED": true,
+        "BEACON_COLLECTED": true,
+        "PROBE_RESP_COLLECTED": true,
+        "EAPOL_M1_COLLECTED": true,
+        "EAPOL_M2_COLLECTED": false,
+        "EAPOL_M3_COLLECTED": false,
+        "PMKID_COLLECTED": false
+      }
+    ],
+    "clientlist": [
+      {
+        "tsakt": 1696564037,
+        "tsauth": 0,
+        "tsassoc": 1696564027,
+        "tsreassoc": 1696564027,
+        "aid": 0,
+        "count": 10,
+        "macap": "74acb9ef9293",
+        "macclient": "d48a3bf532e3",
+        "mic": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "status": 0,
+        "EAP_START_COLLECTED": false,
+        "ROGUE_M2_COLLECTED": false
+      }
+    ]
+  }
+}
+```
+
+Finally prints results of collection after you send SIGINT (ctrl+c):
+** Made pretty for your viewing pleasure, will not print with newlines.
+```json
+{
+  "pcaptool": {
+    "interface_id": 1,
+    "raw_packet_count": 31,
+    "skipped_packet_count": 0,
+    "fcs_frame_count": 0,
+    "band24_count": 31,
+    "band5_count": 0,
+    "band6_count": 0,
+    "wds_count": 0,
+    "device_info_count": 1,
+    "essid_count": 3,
+    "beacon_count": 3,
+    "beacon_count_24": 3,
+    "beacon_count_5": 0,
+    "probe_request_undirected_count": 0,
+    "probe_request_directed_count": 0,
+    "probe_response_count": 3,
+    "deauthentication_count": 0,
+    "disassociation_count": 0,
+    "authentication_count": 3,
+    "auth_open_system_count": 3,
+    "auth_shared_key_count": 0,
+    "association_request_count": 0,
+    "username_count": 0,
+    "identity_count": 0,
+    "eapol_m1_count": 22,
+    "eapol_m2_count": 0,
+    "eapol_m3_count": 0,
+    "eapol_m4_count": 0,
+    "eapol_m4_zeroed_count": 0,
+    "eapol_mp_count": 0,
+    "zeroed_eapol_psk_count": 0,
+    "zeroed_eapol_pmk_count": 0,
+    "eapol_mp_bestcount": 0,
+    "eapol_apless_count": 0,
+    "eapol_written_count": 0,
+    "eapolnc_written_count": 0,
+    "pmkid_best_count": 0,
+    "pmkid_rogue_count": 0,
+    "pmkid_written_count": 0,
+    "pmkid_client_written_count": 0,
+    "total_written": 0,
+    "timestamp_minimum": "10.04.2023 22:55:32",
+    "timestamp_maximum": "10.04.2023 22:55:35",
+    "timestamp_total": 3,
+    "22000_exported": 0,
+    "22000client_exported": 0,
+    "essid_exported": 1,
+    "identity_exported": 0,
+    "username_exported": 0,
+    "deviceinfo_exported": 1,
+    "pcapng_exported": 0,
+    "files_compressed": 1
+  }
+}
 ```
 
 Output will ALWAYS be an "ARGS" json object (with the args you used to run the program, including the ones you didn't specify) a waterfall of "dumptool", and then the final "pcaptool" output with the results of your usage.
