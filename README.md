@@ -8,7 +8,6 @@ o Easy to work with as a subprocess.
 
 If you would prefer to just download the pre-compiled binaries, check the Releases for x86_64, armhf, and aarch64 (both build on Rpi).
 
-
 ## Usage + Output
 
 Example Usage:
