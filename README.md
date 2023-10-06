@@ -178,6 +178,14 @@ cd net-nomad-hcx
 make
 ```
 
+### Build Static Libraries Only (for use in your own project)
+
+produces lib/libhcxdumptool.a and lib/libhcxpcapngtool.a
+
+```
+make libs
+```
+
 ### Clean Everything (for rebuild)
 
 ```
