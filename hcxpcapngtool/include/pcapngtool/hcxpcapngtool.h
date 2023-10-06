@@ -152,7 +152,7 @@ struct maclist_s
  uint8_t		enrollee[WPS_ENROLLEE_LEN];
 };
 typedef struct maclist_s maclist2_t;
-#define	MACLIST_SIZE (sizeof(maclist2_t))
+#define	MACLIST_SIZE2 (sizeof(maclist2_t))
 
 static int sort_maclist_by_mac(const void *a, const void *b)
 {

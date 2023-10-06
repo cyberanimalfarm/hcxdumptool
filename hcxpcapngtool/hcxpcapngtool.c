@@ -399,7 +399,7 @@ static bool initlists(void)
 	static const char nastring[] = {"N/A"};
 
 	maclistmax = MACLIST2_MAX;
-	if ((aplist = (maclist2_t *)calloc((maclistmax + 1), MACLIST_SIZE)) == NULL)
+	if ((aplist = (maclist2_t *)calloc((maclistmax + 1), MACLIST_SIZE2)) == NULL)
 		return false;
 	aplistptr = aplist;
 
@@ -644,7 +644,7 @@ static void outputwordlists(void)
 	static maclist2_t *zeigermac, *zeigermacold;
 
 	zeigermacold = NULL;
-	qsort(aplist, aplistptr - aplist, MACLIST_SIZE, sort_maclist_by_essidlen);
+	qsort(aplist, aplistptr - aplist, MACLIST_SIZE2, sort_maclist_by_essidlen);
 	wecl = strlen(pcapngweakcandidate);
 	if ((wecl > 0) && (wecl < 64) && (strcmp(pcapngweakcandidate, "N/A") != 0))
 	{
@@ -673,7 +673,7 @@ static void outputdeviceinfolist(void)
 
 	if (fh_deviceinfo == NULL)
 		return;
-	qsort(aplist, aplistptr - aplist, MACLIST_SIZE, sort_maclist_by_manufacturer);
+	qsort(aplist, aplistptr - aplist, MACLIST_SIZE2, sort_maclist_by_manufacturer);
 	for (zeigermac = aplist; zeigermac < aplistptr; zeigermac++)
 	{
 		if ((zeigermac->manufacturerlen == 0) && (zeigermac->modellen == 0) && (zeigermac->serialnumberlen == 0) && (zeigermac->devicenamelen == 0) && (zeigermac->enrolleelen == 0))
@@ -1694,7 +1694,7 @@ static void outputwpalists(void)
 	static pmkidlist_t *zeigerpmkidakt;
 	static int essiddupecount;
 
-	qsort(aplist, aplistptr - aplist, MACLIST_SIZE, sort_maclist_by_mac_count);
+	qsort(aplist, aplistptr - aplist, MACLIST_SIZE2, sort_maclist_by_mac_count);
 	qsort(pmkidlist, pmkidlistptr - pmkidlist, PMKIDLIST_SIZE, sort_pmkidlist_by_mac);
 	if (ncvalue == 0)
 		qsort(handshakelist, handshakelistptr - handshakelist, HANDSHAKELIST_SIZE, sort_handshakelist_by_timegap);
@@ -1771,7 +1771,7 @@ static void cleanupmac(void)
 
 	if (aplistptr == aplist)
 		return;
-	qsort(aplist, aplistptr - aplist, MACLIST_SIZE, sort_maclist_by_mac);
+	qsort(aplist, aplistptr - aplist, MACLIST_SIZE2, sort_maclist_by_mac);
 	zeigerold = aplist;
 	for (zeiger = aplist + 1; zeiger < aplistptr; zeiger++)
 	{
@@ -3430,7 +3430,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3440,7 +3440,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = reassociationrequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->type = AP;
@@ -3479,7 +3479,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3489,7 +3489,7 @@ static void process80211reassociation_req(uint64_t reassociationrequesttimestamp
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = reassociationrequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_REASSOC_REQ;
@@ -3525,7 +3525,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3535,7 +3535,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = associationrequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_ASSOC_REQ;
@@ -3572,7 +3572,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3582,7 +3582,7 @@ static void process80211association_req(uint64_t associationrequesttimestamp, ui
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = associationrequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_ASSOC_REQ;
@@ -3643,7 +3643,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3653,7 +3653,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = proberequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_PROBE_REQ;
@@ -3665,7 +3665,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistptr++;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3675,7 +3675,7 @@ static void process80211probe_req_direct(uint64_t proberequesttimestamp, uint8_t
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = proberequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_PROBE_REQ;
@@ -3704,7 +3704,7 @@ static void process80211probe_req(uint64_t proberequesttimestamp, uint8_t *maccl
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3714,7 +3714,7 @@ static void process80211probe_req(uint64_t proberequesttimestamp, uint8_t *maccl
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = proberequesttimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_PROBE_REQ;
@@ -3755,7 +3755,7 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3765,7 +3765,7 @@ static void process80211probe_resp(uint64_t proberesponsetimestamp, uint8_t *mac
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = proberesponsetimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_PROBE_RESP;
@@ -3876,7 +3876,7 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3886,7 +3886,7 @@ static void process80211beacon(uint64_t beacontimestamp, uint8_t *macbc, uint8_t
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = beacontimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_BEACON;
@@ -3935,7 +3935,7 @@ static void process80211actionmeasurement(uint64_t actiontimestamp, uint8_t *mac
 		return;
 	if (aplistptr >= aplist + maclistmax)
 	{
-		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE);
+		aplistnew = (maclist2_t *)realloc(aplist, (maclistmax + MACLIST2_MAX) * MACLIST_SIZE2);
 		if (aplistnew == NULL)
 		{
 			printError("failed to allocate memory for internal list", 1);
@@ -3945,7 +3945,7 @@ static void process80211actionmeasurement(uint64_t actiontimestamp, uint8_t *mac
 		aplistptr = aplistnew + maclistmax;
 		maclistmax += MACLIST2_MAX;
 	}
-	memset(aplistptr, 0, MACLIST_SIZE);
+	memset(aplistptr, 0, MACLIST_SIZE2);
 	aplistptr->timestamp = actiontimestamp;
 	aplistptr->count = 1;
 	aplistptr->status = ST_ACT_MR_REQ;

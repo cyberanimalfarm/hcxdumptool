@@ -13,6 +13,7 @@ static u8 exiteapolm2flag = 0;
 static u8 exiteapolm3flag = 0;
 
 static pid_t hcxpid = 0;
+static bool clearScreen;
 
 static unsigned int seed = 7;
 
@@ -4071,19 +4072,35 @@ cJSON* aplist_jsonify(aplist_t *ap)
 	cJSON_AddItemToObject(ap_json, "tsauth", cJSON_CreateNumber(ap->tsauth / 1000000000ULL));
 	cJSON_AddItemToObject(ap_json, "count", cJSON_CreateNumber(ap->count));
 	
-	cJSON *ap_macap = cJSON_CreateArray();
+	char mac_ap[13] = "";
 	for(int i = 0; i < 6; i++) {
-		cJSON_AddItemToArray(ap_macap, cJSON_CreateNumber(ap->macap[i]));
+		char hex[3];
+		snprintf(hex, 3, "%x", ap->macap[i]);
+		strncat(mac_ap, hex, 3);
 	}
-	cJSON_AddItemToObject(ap_json, "macap", ap_macap);
-	
-	cJSON *ap_macclient = cJSON_CreateArray();
+	cJSON *mac_ap_json = cJSON_CreateString(mac_ap);
+	cJSON_AddItemToObject(ap_json, "macap", mac_ap_json);
+
+	char mac_client[13] = "";
 	for(int i = 0; i < 6; i++) {
-		cJSON_AddItemToArray(ap_macclient, cJSON_CreateNumber(ap->macclient[i]));
+		char hex[3];
+		snprintf(hex, 3, "%x", ap->macclient[i]);
+		strncat(mac_client, hex, 3);
 	}
-	cJSON_AddItemToObject(ap_json, "macclient", ap_macclient);
+	cJSON *mac_client_json = cJSON_CreateString(mac_client);
+	cJSON_AddItemToObject(ap_json, "macclient", mac_client_json);
 
 	cJSON_AddItemToObject(ap_json, "status", cJSON_CreateNumber(ap->status));
+
+	cJSON_AddItemToObject(ap_json, "AP_IN_RANGE", cJSON_CreateBool(ap->status & AP_IN_RANGE));
+	cJSON_AddItemToObject(ap_json, "ESSID_COLLECTED", cJSON_CreateBool(ap->status & AP_ESSID));
+	cJSON_AddItemToObject(ap_json, "BEACON_COLLECTED", cJSON_CreateBool(ap->status & AP_BEACON));
+	cJSON_AddItemToObject(ap_json, "PROBE_RESP_COLLECTED", cJSON_CreateBool(ap->status & AP_PROBERESPONSE));
+	cJSON_AddItemToObject(ap_json, "EAPOL_M1_COLLECTED", cJSON_CreateBool(ap->status & AP_EAPOL_M1));
+	cJSON_AddItemToObject(ap_json, "EAPOL_M2_COLLECTED", cJSON_CreateBool(ap->status & AP_EAPOL_M2));
+	cJSON_AddItemToObject(ap_json, "EAPOL_M3_COLLECTED", cJSON_CreateBool(ap->status & AP_EAPOL_M3));
+	cJSON_AddItemToObject(ap_json, "PMKID_COLLECTED", cJSON_CreateBool(ap->status & AP_PMKID));
+
 	return ap_json;
 }
 
@@ -4097,19 +4114,24 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	cJSON_AddItemToObject(clientlist_json, "aid", cJSON_CreateNumber(client->aid));
 	cJSON_AddItemToObject(clientlist_json, "count", cJSON_CreateNumber(client->count));
 	
-	// Create and add macap
-	cJSON *client_macap = cJSON_CreateArray();
+
+	char mac_ap[13] = "";
 	for(int i = 0; i < 6; i++) {
-		cJSON_AddItemToArray(client_macap, cJSON_CreateNumber(client->macap[i]));
+		char hex[3];
+		snprintf(hex, 3, "%x", client->macap[i]);
+		strncat(mac_ap, hex, 3);
 	}
-	cJSON_AddItemToObject(clientlist_json, "macap", client_macap);
-	
-	// Create and add MacClient
-	cJSON *client_macclient = cJSON_CreateArray();
+	cJSON *mac_ap_json = cJSON_CreateString(mac_ap);
+	cJSON_AddItemToObject(clientlist_json, "macap", mac_ap_json);
+
+	char mac_client[13] = "";
 	for(int i = 0; i < 6; i++) {
-		cJSON_AddItemToArray(client_macclient, cJSON_CreateNumber(client->macclient[i]));
+		char hex[3];
+		snprintf(hex, 3, "%x", client->macclient[i]);
+		strncat(mac_client, hex, 3);
 	}
-	cJSON_AddItemToObject(clientlist_json, "macclient", client_macclient);
+	cJSON *mac_client_json = cJSON_CreateString(mac_client);
+	cJSON_AddItemToObject(clientlist_json, "macclient", mac_client_json);
 	
 	// Create and add MIC
 	cJSON *client_mic = cJSON_CreateArray();
@@ -4119,6 +4141,9 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	cJSON_AddItemToObject(clientlist_json, "mic", client_mic);
 
 	cJSON_AddItemToObject(clientlist_json, "status", cJSON_CreateNumber(client->status));
+	cJSON_AddItemToObject(clientlist_json, "EAP_START_COLLECTED", cJSON_CreateBool(client->status & CLIENT_EAP_START));
+	cJSON_AddItemToObject(clientlist_json, "ROGUE_M2_COLLECTED", cJSON_CreateBool(client->status & CLIENT_EAPOL_M2));
+
 	return clientlist_json;
 }
 
@@ -4129,10 +4154,12 @@ static inline void send_lists(void)
 	cJSON *all_aps = cJSON_CreateArray();
 	cJSON *all_clients = cJSON_CreateArray();
 	char *string = NULL;
-	/*
-	if (system("clear") != 0)
-		errorcount++;
-	*/
+	
+	if(clearScreen) {
+		if (system("clear") != 0)
+			errorcount++;
+	}
+	
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -4187,7 +4214,7 @@ static void printError(char *error, bool fatal)
 	cJSON_free(string);
 }
 
-pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channel_list)
+pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channel_list, bool clear)
 {
 	// Setup options
 	static u8 exiteapolflag = 0;				// Did we exit because of eapol needs being met? (damn i hope so)
@@ -4196,6 +4223,8 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
 	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
 	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
+
+	clearScreen = clear;
 
 	// Exit if these are met. For now, let's require M1/M2/M3 to exit (our best bet for cracking).
 	exiteapolpmkidflag = false;

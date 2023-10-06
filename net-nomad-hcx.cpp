@@ -17,8 +17,8 @@ vector<string> HB_channels = {"34b","36b","38b","40b","42b","44b","46b","48b","5
 
 
 // simple string remove
-void removeCharsFromString(string &str, char* charsToRemove) {
-   for ( unsigned int i = 0; i < strlen(charsToRemove); ++i ) {
+void removeCharsFromString(string &str, string charsToRemove) {
+   for ( unsigned int i = 0; i < strlen(charsToRemove.c_str()); ++i ) {
       str.erase( remove(str.begin(), str.end(), charsToRemove[i]), str.end() );
    }
 }
@@ -82,10 +82,11 @@ int main(int argc, char **argv) {
     options.add_options()
         ("i,interface", "WiFi Interface Ex: wlan1", cxxopts::value<string>())
         ("t,targets", "Targets Ex: 11:22:33:44:55:66 77:88:99:44:55:66",cxxopts::value<vector<string>>())
-        ("c,channels", "Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a",cxxopts::value<vector<string>>())
-        ("n,notar", "Instructs NN to NOT create Tarfile of all output files | Default: false",cxxopts::value<bool>()->default_value("false"))
-        ("p,pcapng", "Instructs NN to produce PCAP-NG file | Default: false",cxxopts::value<bool>()->default_value("false"))
         ("f,file", "Path to file containing target MAC addresses, one per line", cxxopts::value<string>())
+        ("c,channels", "Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a",cxxopts::value<vector<string>>())
+        ("n,notar", "Instructs NN to NOT create Tarfile of all output files | Default: false")
+        ("p,pcapng", "Instructs NN to produce PCAP-NG file | Default: false")
+        ("r,clear", "Instructs NN to clear screen before printing a new status. Do not use with jq. | Default: false")
         ("h,help", "Display Help")
     ;
 
@@ -99,7 +100,6 @@ int main(int argc, char **argv) {
     if (parser.count("help")) {
         std::cout << options.help() << std::endl;
 
-        //print_usage(argv[0]);
         exit(0);
     }
 
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    // Initialize targets variable
+    // Declare targets variable
     vector<string> targets;
 
     // Check for targets option
@@ -133,8 +133,6 @@ int main(int argc, char **argv) {
         std::cout << "{{\"ERROR\":{{\"message\":\"No targets provided. Use either -t/--targets or -f/--file.\",\"fatal\":true}}}}" << std::endl;
         exit(1);
     }
-
-     // vector<string> targets = parser["targets"].as<vector<string>>();
 
     if(targets.size() > 50) {
         cout << "{{\"ERROR\":{{\"message\":\"Too many targets. Max is 50\",\"fatal\":true}}}}" << endl;
@@ -183,6 +181,8 @@ int main(int argc, char **argv) {
     bool notar = parser["notar"].as<bool>();
     bool tar = !notar;
     bool pcapng = parser["pcapng"].as<bool>();
+    bool clear = parser["clear"].as<bool>();
+
 
     // Generate Timestamp for filename
     string filename = "NN-" + GetCurrentTimeForFileName();
@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     out.close();
     
 
-    pcap_buffer_t* result = hcx(iface.c_str(), join_string(targets).c_str(), join_string(channels).c_str());
+    pcap_buffer_t* result = hcx(iface.c_str(), join_string(targets).c_str(), join_string(channels).c_str(), clear);
     
     unsigned long p_buffer_size = result->len;
     unsigned char* p_buffer = result->result;
