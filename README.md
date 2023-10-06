@@ -12,7 +12,7 @@ If you would prefer to just download the pre-compiled binaries, check the Releas
 
 Example Usage:
 ```
-sudo ../net-nomad-hcx_x86_64 panda0 74acb9ef9293 40:9b:cd:ab:1a:bc 6c-99-61-db-cb-86 -c 1a,6a,11a
+sudo ../net-nomad-hcx_x86_64 panda0 74acb9xxxxxx 40:9b:cd:ab:1a:bc 6c-99-61-db-cb-86 -c 1a,6a,11a
 { 1 }  {--------2---------}  {-3-}   {-----------------------4---------------------}  {-----6----}
 
 1. Run as root
@@ -57,11 +57,12 @@ First will print the args:
 {
   "ARGS": {
     "interface": "panda0",
-    "file_prefix": "NN-20231005-23-47-07",
-    "targets": "74acb9ef9293",
+    "outfile": "NetNomad-20231006-00-05-40",
+    "targets": "74acb9xxxxxx",
     "channels": "6a",
     "tarfile": "true",
-    "pcapng": "false"
+    "pcapng": "false",
+    "clear": "false"
   }
 }
 ```
@@ -78,8 +79,8 @@ Then will print the "status" output:
         "tshold1": 1696564033,
         "tsauth": 1696564034,
         "count": 0,
-        "macap": "74acb9ef9293",
-        "macclient": "d48a3bf532e3",
+        "macap": "74acb9xxxxxx",
+        "macclient": "d48a3bxxxxxx",
         "status": 31,
         "AP_IN_RANGE": true,
         "ESSID_COLLECTED": true,
@@ -99,8 +100,8 @@ Then will print the "status" output:
         "tsreassoc": 1696564027,
         "aid": 0,
         "count": 10,
-        "macap": "74acb9ef9293",
-        "macclient": "d48a3bf532e3",
+        "macap": "74acb9xxxxxx",
+        "macclient": "d48a3bxxxxxx",
         "mic": [
           0,
           0,
