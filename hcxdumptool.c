@@ -4156,8 +4156,7 @@ static inline void send_lists(void)
 	char *string = NULL;
 	
 	if(clearScreen) {
-		if (system("clear") != 0)
-			errorcount++;
+		printf("\e[1;1H\e[2J");
 	}
 	
 
@@ -4185,7 +4184,11 @@ static inline void send_lists(void)
 
 	cJSON_AddItemToObject(data, "dumptool", dumptool);
 
-	string = cJSON_PrintUnformatted(data);
+	if(clearScreen) {
+		string = cJSON_Print(data);
+	} else {
+		string = cJSON_PrintUnformatted(data);
+	}
 	cJSON_Delete(data);
 	if (string) 
     {
@@ -4205,7 +4208,11 @@ static void printError(char *error, bool fatal)
 
 	cJSON_AddItemToObject(data, "ERROR", dumptool);
 
-	string = cJSON_PrintUnformatted(data);
+	if(clearScreen) {
+		string = cJSON_Print(data);
+	} else {
+		string = cJSON_PrintUnformatted(data);
+	}
 	cJSON_Delete(data);
 	if (string) 
     {
@@ -4239,7 +4246,7 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	// Grab channel from arg
 	userchannellistname = channel_list;
 
-	///// EVERYTHING BELOW IS HERE SO WE KNOW WHAT WAS ORIGINALLY ON THE COMMANDLINE /////
+	///// OLD COMMANDLINE OPTIONS WE CAN CHANGE IF WE WANT /////
 
 	// Only for "DISABLE BEACON"
 	// timerwaitnd = -1;

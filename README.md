@@ -29,24 +29,24 @@ sudo ../net-nomad-hcx_x86_64 panda0 74acb9xxxxxx 40:9b:cd:ab:1a:bc 6c-99-61-db-c
 
 Help:
 ```bash
-╰─➤  sudo ./net-nomad-hcx_x86_64 -h
+sudo ../net-nomad-hcx_x86_64 -h                   
 WiFi attack tool based on the HCX Dump Tool engine.
 Usage:
   NET NOMAD HCX [OPTION...] <interface> <target> <target> <target>...
   -f, --file arg      Path to file containing target MAC addresses, one per line
+  -o, --outfile arg   Output filename for results
   -c, --channels arg  Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a
   -n, --notar         Instructs NN to NOT create Tarfile of all output files | Default: false
   -p, --pcapng        Instructs NN to produce PCAP-NG file | Default: false
-  -r, --clear         Instructs NN to clear screen before printing a new status | Default: false
+  -r, --clear         Instructs NN to clear screen before printing a new status. Do not use with jq. | Default: false
   -h, --help          Display Help
-
 ```
 
-NOTE: You really probably don't want to scan a lot of channels. This isn't a survey tool, it's a target attack tool. The BPF set by the "targets" will mean that you are REALLY likely to not see a lot of packets because we are literally not seeing anything unless it matches the BPF. Use the LB, HB, and ALL options sparingly and only when you absolutely do not know the channel your target will be on.
+NOTE: You really probably don't want to scan a lot of channels. This isn't a survey tool, it's a target attack tool. The BPF set by the "targets" will mean that you are likely to not see a lot of packets on other channels because we are literally not seeing anything unless it matches the BPF. This will reduce the number of incoming packets from your target. Use the `LB`, `HB`, and `ALL` options sparingly and only when you absolutely do not know the channel your target will be on.
 
-Output will be a "waterfall" of individual json lines, seperated by \n.
+Output will be a "waterfall" of individual json lines, seperated by a newline, unless the -r/--clear option is specificed. Do not use this options with jq directly without handling an error..
 
-To end collection you send a SIGINT (CTRL+C). This will automatically pass the collected data to the pcaptool to produce the output files.
+To end collection send a SIGINT (CTRL+C). This will automatically pass the collected data to the pcaptool to produce the output files.
 
 Example output:
 

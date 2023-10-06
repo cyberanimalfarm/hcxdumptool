@@ -210,7 +210,7 @@ int main(int argc, char **argv) {
     unsigned char* p_buffer = result->result;
 
     // int pcapngtool(char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
-    int pcap_result = pcapngtool(filename.c_str(), p_buffer, p_buffer_size, pcapng, tar);
+    int pcap_result = pcapngtool(filename.c_str(), p_buffer, p_buffer_size, pcapng, tar, clear);
     
     return 0;
 }

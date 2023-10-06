@@ -118,6 +118,7 @@ static int eapleaphashlistmax;
 static int eapmschapv2hashlistmax;
 static int tacacsplistmax;
 static int fd_pcap;
+static bool clearScreen;
 
 static int gzipstat;
 static int pcapngstat;
@@ -5309,7 +5310,11 @@ static inline void send_lists(void) {
 	cJSON_AddItemToObject(data, "pcaptool", pcaptool);
 	
 	
-	string = cJSON_PrintUnformatted(data);
+	if(clearScreen) {
+		string = cJSON_Print(data);
+	} else {
+		string = cJSON_PrintUnformatted(data);
+	}
 	cJSON_Delete(data);
 	if (string) 
     {
@@ -5329,7 +5334,11 @@ static void printError(char *error, bool fatal)
 
 	cJSON_AddItemToObject(data, "ERROR", dumptool);
 
-	string = cJSON_PrintUnformatted(data);
+	if(clearScreen) {
+		string = cJSON_Print(data);
+	} else {
+		string = cJSON_PrintUnformatted(data);
+	}
 	cJSON_Delete(data);
 	if (string) 
     {
@@ -5339,7 +5348,7 @@ static void printError(char *error, bool fatal)
 }
 
 /*===========================================================================*/
-int pcapngtool(const char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles)
+int pcapngtool(const char *prefixname, uint8_t *pcap_buffer, size_t len, bool writePcapNG, bool tarFiles, bool clear)
 {
 	static int exitcode;
 
@@ -5376,6 +5385,8 @@ int pcapngtool(const char *prefixname, uint8_t *pcap_buffer, size_t len, bool wr
 
 	struct timeval tv;
 	static struct stat statinfo;
+	
+	clearScreen = clear;
 
 	// Create fd in memory.
 	int fd = memfd_create("pcap_buffer", 0);

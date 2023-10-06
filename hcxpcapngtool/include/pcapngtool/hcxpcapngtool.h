@@ -512,7 +512,7 @@ static void printError(char *error, bool fatal);
 extern "C" {
 #endif
 
-int pcapngtool(const char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles);
+int pcapngtool(const char* prefixname, uint8_t* pcap_buffer, size_t len, bool writePcapNG, bool tarFiles, bool clear);
 
 #ifdef __cplusplus
 // close the extern "C" block, but only if we started it in the first place
