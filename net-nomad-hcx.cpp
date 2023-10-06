@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
         ("i,interface", "WiFi Interface Ex: wlan1", cxxopts::value<string>())
         ("t,targets", "Targets Ex: 11:22:33:44:55:66 77:88:99:44:55:66",cxxopts::value<vector<string>>())
         ("f,file", "Path to file containing target MAC addresses, one per line", cxxopts::value<string>())
+        ("o,outfile", "Output filename for results", cxxopts::value<string>())
         ("c,channels", "Channels Ex: 1a,6a,11a OR [LB/HB/ALL] | Default: 1a,6a,11a",cxxopts::value<vector<string>>())
         ("n,notar", "Instructs NN to NOT create Tarfile of all output files | Default: false")
         ("p,pcapng", "Instructs NN to produce PCAP-NG file | Default: false")
@@ -185,10 +186,16 @@ int main(int argc, char **argv) {
 
 
     // Generate Timestamp for filename
-    string filename = "NN-" + GetCurrentTimeForFileName();
+    string filename;
+    if (parser.count("outfile")) {
+        string outfile = parser["outfile"].as<string>();
+        filename = outfile;
+    } else {
+        filename = "NetNomad-" + GetCurrentTimeForFileName();
+    }
 
     // Print args in JSON
-    string args = fmt::format("{{\"ARGS\": {{ \"interface\": \"{}\",\"file_prefix\": \"{}\",\"targets\": \"{}\", \"channels\": \"{}\",\"tarfile\": \"{}\",\"pcapng\": \"{}\"}}}}", iface, filename, join_string(targets).c_str(), join_string(channels).c_str(), tar, pcapng);
+    string args = fmt::format("{{\"ARGS\": {{ \"interface\": \"{}\",\"outfile\": \"{}\",\"targets\": \"{}\", \"channels\": \"{}\",\"tarfile\": \"{}\",\"pcapng\": \"{}\",\"clear\": \"{}\"}}}}", iface, filename, join_string(targets).c_str(), join_string(channels).c_str(), tar, pcapng, clear);
     cout << args << endl;
 
     // Write the args to a file
