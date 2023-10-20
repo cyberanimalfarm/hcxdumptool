@@ -31,17 +31,17 @@ net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
 	-lcjson \
 	-lfmt \
 	-lpcap \
-	-ldbus-1 \
-	-lz \
-	-larchive \
-	-lpthread \
-	-ldl \
 	-Wl,-Bdynamic \
 	-lgcc_s \
 	-llzma \
 	-lxml2 \
 	-lbz2 \
 	-lnettle \
+	-ldbus-1 \
+	-lz \
+	-larchive \
+	-lpthread \
+	-ldl \
 	-lsystemd \
 
 net-nomad-hcx.o: net-nomad-hcx.cpp
