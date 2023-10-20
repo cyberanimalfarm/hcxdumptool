@@ -28,13 +28,14 @@ net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
 	-lhcxpcapngtool \
 	-lssl \
 	-lcrypto \
-	-lpthread \
 	-lcjson \
 	-lfmt \
 	-lpcap \
 	-ldbus-1 \
 	-lz \
 	-larchive \
+	-lpthread \
+	-ldl \
 	-Wl,-Bdynamic \
 	-lgcc_s \
 	-llzma \
