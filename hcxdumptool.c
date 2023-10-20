@@ -1614,7 +1614,7 @@ static inline void process80211eapol_m2rg(void)
 			continue;
 		(clientlist + i)->tsakt = tsakt;
 		(clientlist + i)->status |= CLIENT_EAPOL_M2;
-				memcpy((clientlist + i)->mic, &wpakey->keymic[0], 4);
+		memcpy((clientlist + i)->mic, &wpakey->keymic[0], 4);
 		if ((clientlist + i)->count == 0)
 			return;
 		if (memcmp((clientlist + i)->mic, &wpakey->keymic[0], 4) == 0)
