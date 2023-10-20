@@ -16,7 +16,7 @@ all: net-nomad-hcx clean
 	echo "Build Succeeded"
 
 net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
-	g++ -w -o net-nomad-hcx_x86_64 net-nomad-hcx.cpp \
+	g++ -w -o net-nomad-hcx_$(ARCH) net-nomad-hcx.cpp \
 	-Llib \
 	-L/usr/local/ssl/lib \
 	-L/usr/lib/x86_64-linux-gnu \
