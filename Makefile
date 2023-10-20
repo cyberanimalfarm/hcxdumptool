@@ -42,6 +42,7 @@ net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
 	-larchive \
 	-lpthread \
 	-ldl \
+	-latomic \
 	-lsystemd \
 
 net-nomad-hcx.o: net-nomad-hcx.cpp
