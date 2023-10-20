@@ -35,6 +35,15 @@ jobs:
        make
        sudo make install
        cd ../
+    - name: Get / Install libFMT
+      run: |
+        cd 
+        wget https://github.com/fmtlib/fmt/releases/download/10.1.0/fmt-10.1.0.zip
+        unzip fmt-10.1.0.zip
+        cd fmt-10.1.0
+        mkdir build && cd build
+        cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ..
+        sudo make install
     - name: clean
       run: make cleanall
     - name: make
