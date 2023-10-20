@@ -26,6 +26,7 @@ net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
 	-Wl,-Bstatic \
 	-lhcxdumptool \
 	-lhcxpcapngtool \
+	-lpthread \
 	-lssl \
 	-lcrypto \
 	-lcjson \
