@@ -105,8 +105,114 @@
 
 #define WEAKCANDIDATEDEF "12345678"
 
+struct handshakelist_s
+{
+    uint64_t timestampgap;
+    uint64_t timestamp;
+    uint8_t status;
+    uint8_t messageap;
+    uint8_t messageclient;
+    uint64_t rcgap;
+    uint8_t nc;
+    uint8_t ap[6];
+    uint8_t client[6];
+    uint8_t anonce[32];
+    uint8_t pmkid[16];
+    uint16_t eapauthlen;
+    uint8_t eapol[256];
+};
+typedef struct handshakelist_s handshakelist_t;
+#define HANDSHAKELIST_SIZE (sizeof(handshakelist_t))
 
+static int sort_handshakelist_by_timegap(const void *a, const void *b)
+{
+    const handshakelist_t *ia = (const handshakelist_t *)a;
+    const handshakelist_t *ib = (const handshakelist_t *)b;
 
+    if (memcmp(ia->ap, ib->ap, 6) > 0)
+        return 1;
+    else if (memcmp(ia->ap, ib->ap, 6) < 0)
+        return -1;
+    if (memcmp(ia->client, ib->client, 6) > 0)
+        return 1;
+    else if (memcmp(ia->client, ib->client, 6) < 0)
+        return -1;
+    if (ia->timestampgap > ib->timestampgap)
+        return 1;
+    else if (ia->timestampgap < ib->timestampgap)
+        return -1;
+    if (ia->rcgap > ib->rcgap)
+        return 1;
+    else if (ia->rcgap < ib->rcgap)
+        return -1;
+    if (ia->rcgap > ib->rcgap)
+        return 1;
+    else if (ia->rcgap < ib->rcgap)
+        return -1;
+    return 0;
+}
+
+static int sort_handshakelist_by_rcgap(const void *a, const void *b)
+{
+    const handshakelist_t *ia = (const handshakelist_t *)a;
+    const handshakelist_t *ib = (const handshakelist_t *)b;
+
+    if (memcmp(ia->ap, ib->ap, 6) > 0)
+        return 1;
+    else if (memcmp(ia->ap, ib->ap, 6) < 0)
+        return -1;
+    if (memcmp(ia->client, ib->client, 6) > 0)
+        return 1;
+    else if (memcmp(ia->client, ib->client, 6) < 0)
+        return -1;
+    if (ia->rcgap > ib->rcgap)
+        return 1;
+    else if (ia->rcgap < ib->rcgap)
+        return -1;
+    if (ia->timestampgap > ib->timestampgap)
+        return 1;
+    else if (ia->timestampgap < ib->timestampgap)
+        return -1;
+    if (ia->rcgap > ib->rcgap)
+        return 1;
+    else if (ia->rcgap < ib->rcgap)
+        return -1;
+    return 0;
+}
+/*===========================================================================*/
+struct pmkidlist_s
+{
+    uint64_t timestamp;
+    uint8_t status;
+#define PMKID_AP 0x01
+#define PMKID_CLIENT 0x10
+    uint8_t ap[6];
+    uint8_t client[6];
+    uint8_t anonce[32];
+    uint8_t pmkid[16];
+};
+typedef struct pmkidlist_s pmkidlist_t;
+#define PMKIDLIST_SIZE (sizeof(pmkidlist_t))
+
+static int sort_pmkidlist_by_mac(const void *a, const void *b)
+{
+    const pmkidlist_t *ia = (const pmkidlist_t *)a;
+    const pmkidlist_t *ib = (const pmkidlist_t *)b;
+
+    if (memcmp(ia->ap, ib->ap, 6) > 0)
+        return 1;
+    else if (memcmp(ia->ap, ib->ap, 6) < 0)
+        return -1;
+    if (memcmp(ia->client, ib->client, 6) > 0)
+        return 1;
+    else if (memcmp(ia->client, ib->client, 6) < 0)
+        return -1;
+    if (memcmp(ia->pmkid, ib->pmkid, 6) < 0)
+        return 1;
+    else if (memcmp(ia->pmkid, ib->pmkid, 6) > 0)
+        return -1;
+    return 0;
+}
 /*===========================================================================*/
 
 typedef struct
@@ -382,8 +488,8 @@ static clientlist_t *clientlist;
 
 static inline void send_lists();
 
-cJSON* aplist_jsonify(aplist_t *ap);
-cJSON* clientlist_jsonify(clientlist_t *client);
+cJSON *aplist_jsonify(aplist_t *ap);
+cJSON *clientlist_jsonify(clientlist_t *client);
 
 static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n);
 static bool setup_pcap_buffer();
@@ -391,16 +497,16 @@ static void printError(char *error, bool fatal);
 
 typedef struct
 {
-    u8* result;
+    u8 *result;
     size_t len;
 } pcap_buffer_t;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-pcap_buffer_t* hcx(const char* iname, const char* target_mac, const char* channel_list, bool clear);
-
+    pcap_buffer_t *hcx(const char *iname, const char *target_mac, const char *channel_list, bool clear);
 
 #ifdef __cplusplus
 }

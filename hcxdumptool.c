@@ -26,7 +26,7 @@ static int fd_timer1 = 0;
 static int fd_pcapng = 0;
 
 static size_t pcap_buffer_size = 0;
-static u8* pcap_buffer;
+static u8 *pcap_buffer;
 
 static u8 rdsort = 0;
 static long int totalcapturedcount = 0;
@@ -375,8 +375,6 @@ static char rtb[RTD_LEN] = {0};
 
 /*---------------------------------------------------------------------------*/
 
-
-
 /*===========================================================================*/
 /* frequency handling */
 /*---------------------------------------------------------------------------*/
@@ -595,7 +593,8 @@ static bool writeshb(void)
 	shblen += TOTAL_SIZE;
 	shbhdr->total_length = shblen;
 	totallength->total_length = shblen;
-	if (extend_and_copy_pcap(&shb, shblen) != shblen) {
+	if (extend_and_copy_pcap(&shb, shblen) != shblen)
+	{
 		return false;
 	}
 	wshbcount++;
@@ -626,7 +625,8 @@ static bool writeidb(void)
 	idblen += TOTAL_SIZE;
 	idbhdr->total_length = idblen;
 	totallength->total_length = idblen;
-	if (extend_and_copy_pcap(&idb, idblen) != idblen) {
+	if (extend_and_copy_pcap(&idb, idblen) != idblen)
+	{
 		return false;
 	}
 	widbcount++;
@@ -663,7 +663,8 @@ static bool writecb(void)
 	cblen += TOTAL_SIZE;
 	cbhdr->total_length = cblen;
 	totallength->total_length = cblen;
-	if (extend_and_copy_pcap(&cb, cblen) != cblen) {
+	if (extend_and_copy_pcap(&cb, cblen) != cblen)
+	{
 		return false;
 	}
 	wecbcount++;
@@ -672,12 +673,14 @@ static bool writecb(void)
 
 /*---------------------------------------------------------------------------*/
 
-static bool setup_pcap_buffer() {
-	pcap_buffer = (u8*)calloc(pcap_buffer_size + 1, sizeof(u8));
+static bool setup_pcap_buffer()
+{
+	pcap_buffer = (u8 *)calloc(pcap_buffer_size + 1, sizeof(u8));
 
-    if (pcap_buffer == NULL) {
-        return false;
-    }
+	if (pcap_buffer == NULL)
+	{
+		return false;
+	}
 	if (writeshb() == false)
 		return false;
 	if (writeidb() == false)
@@ -687,15 +690,17 @@ static bool setup_pcap_buffer() {
 	return true;
 }
 
-static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n) {
+static ssize_t extend_and_copy_pcap(const void *__buf, ssize_t __n)
+{
 	ssize_t pcap_new_total = pcap_buffer_size + __n;
 
-	u8* newbuffer = realloc(pcap_buffer, pcap_new_total * sizeof(u8));
-	if (newbuffer == NULL) {
+	u8 *newbuffer = realloc(pcap_buffer, pcap_new_total * sizeof(u8));
+	if (newbuffer == NULL)
+	{
 		return false;
 	}
 	pcap_buffer = newbuffer;
-	memcpy(pcap_buffer+pcap_buffer_size, __buf, __n);
+	memcpy(pcap_buffer + pcap_buffer_size, __buf, __n);
 	pcap_buffer_size = pcap_new_total;
 
 	return __n;
@@ -939,7 +944,7 @@ static inline void send_80211_reassociationrequest(size_t i)
 	reassociationrequest->capability = 0x431;
 	reassociationrequest->listen_interval = 0x14;
 	memcpy(reassociationrequest->current_macap, (aplist + i)->macap, ETH_ALEN);
-	ii += sizeof(ieee80211_reassoc_req_t) -1;
+	ii += sizeof(ieee80211_reassoc_req_t) - 1;
 	wltxnoackbuffer[ii++] = 0;
 	wltxnoackbuffer[ii++] = (aplist + i)->ie.essidlen;
 	memcpy(&wltxnoackbuffer[ii], (aplist + i)->ie.essid, (aplist + i)->ie.essidlen);
@@ -1609,11 +1614,11 @@ static inline void process80211eapol_m2rg(void)
 			continue;
 		(clientlist + i)->tsakt = tsakt;
 		(clientlist + i)->status |= CLIENT_EAPOL_M2;
+				memcpy((clientlist + i)->mic, &wpakey->keymic[0], 4);
 		if ((clientlist + i)->count == 0)
 			return;
 		if (memcmp((clientlist + i)->mic, &wpakey->keymic[0], 4) == 0)
 			send_80211_disassociation_fm_ap(macfrx->addr2, macfrx->addr1, WLAN_REASON_PREV_AUTH_NOT_VALID);
-		memcpy((clientlist + i)->mic, &wpakey->keymic[0], 4);
 		(clientlist + i)->count -= 1;
 		return;
 	}
@@ -2417,7 +2422,7 @@ static bool nl_scanloop(void)
 				process_packet();					 // process the packet.
 			else if (events[i].data.fd == fd_timer1) // The event came from the timer.
 			{
-				// The timer is set to fire every 1second, so every second the event will fire.
+				// The timer is set to fire every 1 second, so every second the event will fire.
 
 				// Handle error in time.
 				if (read(fd_timer1, &timer1count, sizeof(u64)) == -1)
@@ -2432,7 +2437,7 @@ static bool nl_scanloop(void)
 				tsakt = ((u64)tspecakt.tv_sec * 1000000000ULL) + tspecakt.tv_nsec;
 
 				// show realtime function gets called from here.
-				//show_realtime();
+				// show_realtime();
 				send_lists();
 
 				// Handle channel switching.
@@ -3531,7 +3536,7 @@ static bool set_interface(bool interfacefrequencyflag, char *userfrequencylistna
 	scanlistindex = 0;
 	if (nl_set_frequency() == false)
 		return false;
-	//show_interfacecapabilities2();
+	// show_interfacecapabilities2();
 	return true;
 }
 /*===========================================================================*/
@@ -3956,16 +3961,19 @@ bool generate_filter(char *dev, char *addr)
 	while (tokptr != NULL)
 	{
 		targets[targets_size] = tokptr;
-		targets_size+=1;
+		targets_size += 1;
 		tokptr = strtok(NULL, ",");
 	}
 
-
-	for (int i = 0; i<targets_size; i++) {
+	for (int i = 0; i < targets_size; i++)
+	{
 		char line[250];
-		if (i == 0)	{	
+		if (i == 0)
+		{
 			snprintf(line, sizeof(line), "wlan addr1 %s or wlan addr2 %s or wlan addr3 %s ", targets[i], targets[i], targets[i]);
-		} else {
+		}
+		else
+		{
 			snprintf(line, sizeof(line), "or wlan addr1 %s or wlan addr2 %s or wlan addr3 %s ", targets[i], targets[i], targets[i]);
 		}
 		strncat(filter_exp, line, sizeof(line));
@@ -3982,15 +3990,15 @@ bool generate_filter(char *dev, char *addr)
 	handle = pcap_open_live(dev, BUFSIZ, 1, 1000, error_buffer);
 	if (handle == NULL)
 	{
-		static char* error[300];
+		static char *error[300];
 		snprintf(error, 299, "Could not open %s - %s", dev, error_buffer);
 		printError(error, 1);
 		exit(EXIT_FAILURE);
 	}
 	if (pcap_compile(handle, &filter, filter_exp, 0, ip) == -1)
 	{
-		static char* error[300];
-		snprintf(error, 299,"Bad filter - %s", pcap_geterr(handle));
+		static char *error[300];
+		snprintf(error, 299, "Bad filter - %s", pcap_geterr(handle));
 		printError(error, 1);
 		exit(EXIT_FAILURE);
 	}
@@ -4033,7 +4041,7 @@ static void read_essidlist(char *listname)
 
 	if ((fh_essidlist = fopen(listname, "r")) == NULL)
 	{
-		static char* error[300];
+		static char *error[300];
 		snprintf(error, 299, "Failed to open beacon list %s", listname);
 		printError(error, 0);
 		return;
@@ -4063,7 +4071,7 @@ static void read_essidlist(char *listname)
 	return;
 }
 
-cJSON* aplist_jsonify(aplist_t *ap)
+cJSON *aplist_jsonify(aplist_t *ap)
 {
 	cJSON *ap_json = cJSON_CreateObject();
 
@@ -4071,9 +4079,10 @@ cJSON* aplist_jsonify(aplist_t *ap)
 	cJSON_AddItemToObject(ap_json, "tshold1", cJSON_CreateNumber(ap->tshold1 / 1000000000ULL));
 	cJSON_AddItemToObject(ap_json, "tsauth", cJSON_CreateNumber(ap->tsauth / 1000000000ULL));
 	cJSON_AddItemToObject(ap_json, "count", cJSON_CreateNumber(ap->count));
-	
+
 	char mac_ap[13] = "";
-	for(int i = 0; i < 6; i++) {
+	for (int i = 0; i < 6; i++)
+	{
 		char hex[3];
 		snprintf(hex, 3, "%x", ap->macap[i]);
 		strncat(mac_ap, hex, 3);
@@ -4082,7 +4091,8 @@ cJSON* aplist_jsonify(aplist_t *ap)
 	cJSON_AddItemToObject(ap_json, "macap", mac_ap_json);
 
 	char mac_client[13] = "";
-	for(int i = 0; i < 6; i++) {
+	for (int i = 0; i < 6; i++)
+	{
 		char hex[3];
 		snprintf(hex, 3, "%x", ap->macclient[i]);
 		strncat(mac_client, hex, 3);
@@ -4104,7 +4114,7 @@ cJSON* aplist_jsonify(aplist_t *ap)
 	return ap_json;
 }
 
-cJSON* clientlist_jsonify(clientlist_t *client)
+cJSON *clientlist_jsonify(clientlist_t *client)
 {
 	cJSON *clientlist_json = cJSON_CreateObject();
 	cJSON_AddItemToObject(clientlist_json, "tsakt", cJSON_CreateNumber(client->tsakt / 1000000000ULL));
@@ -4113,10 +4123,10 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	cJSON_AddItemToObject(clientlist_json, "tsreassoc", cJSON_CreateNumber(client->tsreassoc / 1000000000ULL));
 	cJSON_AddItemToObject(clientlist_json, "aid", cJSON_CreateNumber(client->aid));
 	cJSON_AddItemToObject(clientlist_json, "count", cJSON_CreateNumber(client->count));
-	
 
 	char mac_ap[13] = "";
-	for(int i = 0; i < 6; i++) {
+	for (int i = 0; i < 6; i++)
+	{
 		char hex[3];
 		snprintf(hex, 3, "%x", client->macap[i]);
 		strncat(mac_ap, hex, 3);
@@ -4125,17 +4135,19 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	cJSON_AddItemToObject(clientlist_json, "macap", mac_ap_json);
 
 	char mac_client[13] = "";
-	for(int i = 0; i < 6; i++) {
+	for (int i = 0; i < 6; i++)
+	{
 		char hex[3];
 		snprintf(hex, 3, "%x", client->macclient[i]);
 		strncat(mac_client, hex, 3);
 	}
 	cJSON *mac_client_json = cJSON_CreateString(mac_client);
 	cJSON_AddItemToObject(clientlist_json, "macclient", mac_client_json);
-	
+
 	// Create and add MIC
 	cJSON *client_mic = cJSON_CreateArray();
-	for(int i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; i++)
+	{
 		cJSON_AddItemToArray(client_mic, cJSON_CreateNumber(client->mic[i]));
 	}
 	cJSON_AddItemToObject(clientlist_json, "mic", client_mic);
@@ -4147,36 +4159,36 @@ cJSON* clientlist_jsonify(clientlist_t *client)
 	return clientlist_json;
 }
 
-static inline void send_lists(void) 
+static inline void send_lists(void)
 {
 	cJSON *data = cJSON_CreateObject();
 	cJSON *dumptool = cJSON_CreateObject();
 	cJSON *all_aps = cJSON_CreateArray();
 	cJSON *all_clients = cJSON_CreateArray();
 	char *string = NULL;
-	
-	if(clearScreen) {
+
+	if (clearScreen)
+	{
 		printf("\e[1;1H\e[2J");
 	}
-	
 
 	for (int i = 0; i < 10; i++)
 	{
 		if ((aplist + i)->tsakt == 0)
 			break; // No more APs
 
-		//cJSON *ap;
+		// cJSON *ap;
 		cJSON *ap = aplist_jsonify(aplist + i);
 		cJSON_AddItemToArray(all_aps, ap);
 	}
 	cJSON_AddItemToObject(dumptool, "aplist", all_aps);
-	
+
 	for (int i = 0; i < 10; i++)
 	{
 		if ((clientlist + i)->tsakt == 0)
 			break; // No more Clients
 
-		//cJSON *client;
+		// cJSON *client;
 		cJSON *client = clientlist_jsonify(clientlist + i);
 		cJSON_AddItemToArray(all_clients, client);
 	}
@@ -4184,20 +4196,23 @@ static inline void send_lists(void)
 
 	cJSON_AddItemToObject(data, "dumptool", dumptool);
 
-	if(clearScreen) {
+	if (clearScreen)
+	{
 		string = cJSON_Print(data);
-	} else {
+	}
+	else
+	{
 		string = cJSON_PrintUnformatted(data);
 	}
 	cJSON_Delete(data);
-	if (string) 
-    {
-        printf("%s\n", string);
-    }
-    cJSON_free(string);
+	if (string)
+	{
+		printf("%s\n", string);
+	}
+	cJSON_free(string);
 }
 
-static void printError(char *error, bool fatal) 
+static void printError(char *error, bool fatal)
 {
 	cJSON *data = cJSON_CreateObject();
 	cJSON *dumptool = cJSON_CreateObject();
@@ -4208,28 +4223,31 @@ static void printError(char *error, bool fatal)
 
 	cJSON_AddItemToObject(data, "ERROR", dumptool);
 
-	if(clearScreen) {
+	if (clearScreen)
+	{
 		string = cJSON_Print(data);
-	} else {
+	}
+	else
+	{
 		string = cJSON_PrintUnformatted(data);
 	}
 	cJSON_Delete(data);
-	if (string) 
-    {
-        printf("%s\n", string);
-    }
+	if (string)
+	{
+		printf("%s\n", string);
+	}
 	cJSON_free(string);
 }
 
-pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channel_list, bool clear)
+pcap_buffer_t *hcx(const char *iname, const char *target_mac, const char *channel_list, bool clear)
 {
 	// Setup options
 	static u8 exiteapolflag = 0;				// Did we exit because of eapol needs being met? (damn i hope so)
 	static bool interfacefrequencyflag = false; // Use interface freqs for scan... This will override a specific channel... reccomend we keep this off.
 	static struct timespec tspecifo, tspeciforem;
-	static char *essidlistname = NULL;			// ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
-	static char *userchannellistname = NULL;	// List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
-	static char *userfrequencylistname = NULL;	// List of user freqs to scan (Likely not used)
+	static char *essidlistname = NULL;		   // ESSID list approved for targeting unassociated clients (We could use this, if we can get a list of probes from a target from kismet?)
+	static char *userchannellistname = NULL;   // List of user channels to scan (Likely our priority use-case because we should have the channel from Kismet)
+	static char *userfrequencylistname = NULL; // List of user freqs to scan (Likely not used)
 
 	clearScreen = clear;
 
@@ -4241,7 +4259,6 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	// set interface name and index based on arg.
 	ifaktindex = if_nametoindex(iname);
 	strncpy(ifaktname, iname, IF_NAMESIZE - 1);
-
 
 	// Grab channel from arg
 	userchannellistname = channel_list;
@@ -4320,7 +4337,7 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	if (init_lists() == false)
 	{
 		errorcount++;
-		printError( "failed to initialize lists", 1);
+		printError("failed to initialize lists", 1);
 		goto byebye;
 	}
 	init_values();
@@ -4328,13 +4345,13 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	if (open_control_sockets() == false)
 	{
 		errorcount++;
-		printError( "failed to open control sockets", 1);
+		printError("failed to open control sockets", 1);
 		goto byebye;
 	}
 	if (get_interfacelist() == false)
 	{
 		errorcount++;
-		printError( "failed to get interface list", 1);
+		printError("failed to get interface list", 1);
 		goto byebye;
 	}
 
@@ -4342,7 +4359,7 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	if (getuid() != 0)
 	{
 		errorcount++;
-		printError( "must be run as root", 1);
+		printError("must be run as root", 1);
 		goto byebye;
 	}
 
@@ -4365,7 +4382,8 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	}
 	if (essidlistname != NULL)
 		read_essidlist(essidlistname);
-	if (setup_pcap_buffer() == false) {
+	if (setup_pcap_buffer() == false)
+	{
 		errorcount++;
 		printError("failed to open pcapng buffer", 1);
 		goto byebye;
@@ -4391,7 +4409,8 @@ pcap_buffer_t* hcx(const char *iname, const char *target_mac, const char *channe
 	/*---------------------------------------------------------------------------*/
 	tspecifo.tv_sec = 5;
 	tspecifo.tv_nsec = 0;
-	if (bpf.len == 0) {
+	if (bpf.len == 0)
+	{
 		printError("BPF error - length 0", 1);
 		exit(EXIT_FAILURE);
 	}
@@ -4408,7 +4427,7 @@ byebye:
 	close_fds();
 	close_sockets();
 	close_lists();
-	
+
 	static pcap_buffer_t result;
 	result.len = pcap_buffer_size;
 	result.result = pcap_buffer;
