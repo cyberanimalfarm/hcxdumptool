@@ -196,15 +196,19 @@ You can see what each key means and how the values are represented here:
 
 #####Depends:
 ```git 
-build-essential 
+build-essential
+libgcc-10-dev
 zlib1g-dev 
 checkinstall 
 libpcap-dev 
 libssl-dev 
 libarchive-dev 
 libbz2-dev 
-liblzma-dev 
-libfmt-dev
+liblzma-dev
+libxml2-dev
+nettle-dev
+libdbus-1-dev
+libsystemd-dev
 cmake
 cJSON (https://github.com/DaveGamble/cJSON) Built statically (-DBUILD_SHARED_LIBS=Off flag for cmake)
 openssl 3+
@@ -218,7 +222,17 @@ Tested on Ubunutu 22.04
 
 Instructions:
 ```bash
-sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev libfmt-dev cmake
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake libxml2-dev nettle-dev libdbus-1-dev libgcc-10-dev
+
+# Build libfmt statically
+cd 
+wget https://github.com/fmtlib/fmt/releases/download/10.1.0/fmt-10.1.0.zip
+unzip fmt-10.1.0.zip
+cd fmt-10.1.0
+mkdir build && cd build
+cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ..
+sudo make install
+
 # Build cJSON
 cd
 git clone https://github.com/DaveGamble/cJSON
@@ -253,7 +267,7 @@ getconf LONG_BIT
 Instructions:
 ```bash
 # Install deps
-sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev libfmt-dev cmake
+sudo apt install -y git build-essential zlib1g-dev checkinstall libpcap-dev libssl-dev libarchive-dev libbz2-dev liblzma-dev cmake libxml2-dev nettle-dev libdbus-1-dev libsystemd-dev libgcc-10-dev
 
 # Install new openssl
 # I understand the OS relies heavily on OpenSSL and updating it COULD fuck up the OS. However, using this method I haven't seen anything get fucked up.
@@ -283,7 +297,16 @@ source /etc/environment
 echo $PATH
 openssl version | grep $VER
 
-# Build cJSON
+# Build libfmt (statically))
+cd 
+wget https://github.com/fmtlib/fmt/releases/download/10.1.0/fmt-10.1.0.zip
+unzip fmt-10.1.0.zip
+cd fmt-10.1.0
+mkdir build && cd build
+cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ..
+sudo make install
+
+# Build cJSON (statically)
 cd
 git clone <this repo>
 git clone https://github.com/DaveGamble/cJSON
