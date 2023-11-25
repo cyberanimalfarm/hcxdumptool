@@ -16,34 +16,31 @@ all: net-nomad-hcx clean
 	echo "Build Succeeded"
 
 net-nomad-hcx: net-nomad-hcx.o libhcxdumptool.a libhcxpcapngtool.a
-	g++ -w -o net-nomad-hcx_$(ARCH) net-nomad-hcx.cpp \
+	g++ -w -o net-nomad-hcx_$(ARCH) net-nomad-hcx.cpp -s -static \
 	-Llib \
+	-I/usr/include \
 	-L/usr/local/ssl/lib \
 	-L/usr/lib/x86_64-linux-gnu \
 	-I/usr/local/ssl/include \
+	-I fmt/include \
 	-Iinclude \
 	-Ihcxpcapngtool/include/pcapngtool/ \
-	-Wl,-Bstatic \
 	-lhcxdumptool \
 	-lhcxpcapngtool \
+	-lcjson \
+	-lpcap  -ldbus-1 \
+	-lsystemd \
+	-larchive \
+	-lnettle \
 	-lssl \
 	-lcrypto \
-	-lcjson \
-	-lfmt \
-	-lpcap \
-	-Wl,-Bdynamic \
-	-lgcc_s \
-	-llzma \
 	-lxml2 \
+	-llzma \
 	-lbz2 \
-	-lnettle \
-	-ldbus-1 \
 	-lz \
-	-larchive \
-	-lpthread \
-	-ldl \
-	-latomic \
-	-lsystemd \
+	-licuuc \
+	-licudata \
+	
 
 net-nomad-hcx.o: net-nomad-hcx.cpp
 	g++ -O -c net-nomad-hcx.cpp
@@ -63,7 +60,7 @@ libhcxpcapngtool.a: hcxpcapngtool.o
 libs: libhcxdumptool.a libhcxpcapngtool.a
 
 cleanall:
-	rm -f net-nomad-hcx *.o lib/*.a *.gch
+	rm -f net-nomad-hcx_* *.o lib/*.a *.gch
 
 clean:
 	rm -f *.o *.gch
